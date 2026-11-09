@@ -43,6 +43,12 @@ class SettingsStore {
     if (!['minimize', 'keep', 'close'].includes(s.afterLaunch)) s.afterLaunch = 'minimize';
     s.jvmArgs = String(s.jvmArgs || '').trim();
 
+    const addons = {};
+    for (const [k, v] of Object.entries(s.addons || {})) {
+      if (/^[a-z0-9_-]{1,40}$/i.test(k)) addons[k] = !!v;
+    }
+    s.addons = addons;
+
     s.gameDir = path.resolve(String(s.gameDir || this.defaults.gameDir));
 
     fs.mkdirSync(path.dirname(this.file), { recursive: true });

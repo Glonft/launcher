@@ -1,7 +1,7 @@
 {
   "name": "melinasmp-launcher",
   "productName": "MelinaSMP Launcher",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "MelinaSMP Launcher",
   "main": "main.js",
   "scripts": {
@@ -36,12 +36,12 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "artifactName": "MelinaSMP-Launcher-Setup-${version}.${ext}"
+      "artifactName": "MelinaSMP-Launcher-Setup.${ext}"
     },
     "linux": {
       "target": "AppImage",
       "category": "Game",
-      "artifactName": "MelinaSMP-Launcher-${version}.${ext}"
+      "artifactName": "MelinaSMP-Launcher.${ext}"
     },
     "publish": [
       {

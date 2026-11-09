@@ -2,17 +2,87 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://mc-heads.net; style-src 'self'; script-src 'self'">
   <title>Launcher</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1 id="title">Mój Serwer</h1>
-    <span id="server" class="muted"></span>
-    <button id="btn-settings" class="icon" title="Ustawienia">⚙ Ustawienia</button>
+    <img src="logo.png" class="logo" alt="">
+    <h1 id="title">MelinaSMP</h1>
+    <div id="update-bar" class="update-bar hidden">
+      <span id="update-text"></span>
+      <button id="btn-update-install" class="primary-sm hidden">Uruchom ponownie i zaktualizuj</button>
+    </div>
+    <button id="btn-settings" class="ghost">⚙ Ustawienia</button>
   </header>
 
+  <main>
+    <section class="news card">
+      <h2>Aktualności</h2>
+      <div id="news-list" class="news-list"><p class="muted">Ładowanie…</p></div>
+    </section>
+
+    <section class="side">
+      <div class="card server">
+        <div class="server-head">
+          <span id="status-dot" class="dot"></span>
+          <div>
+            <div id="server-name" class="server-name">MelinaSMP</div>
+            <div id="server-addr" class="muted small"></div>
+          </div>
+          <button id="btn-ping" class="ghost tiny" title="Odśwież status">⟳</button>
+        </div>
+        <div class="server-stats">
+          <div><span id="players-count" class="big">–</span><span class="muted small">graczy</span></div>
+          <div><span id="ping-ms" class="big">–</span><span class="muted small">ping</span></div>
+        </div>
+        <div id="players-list" class="players"></div>
+      </div>
+
+      <div class="card account">
+        <div id="account-none" class="hidden">
+          <button id="btn-add-account-first" class="primary">Dodaj konto, aby grać</button>
+        </div>
+        <div id="account-current" class="account-current hidden">
+          <div class="avatar" id="avatar"></div>
+          <div class="account-info">
+            <div id="player" class="player"></div>
+            <div id="acc-type" class="muted small"></div>
+          </div>
+          <select id="account-select" title="Zmień konto"></select>
+        </div>
+      </div>
+
+      <button id="btn-play" class="play" disabled>GRAJ</button>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-row">
+      <span id="progress-label" class="small muted">Gotowy</span>
+      <a href="#" id="btn-log" class="small">Pokaż log</a>
+    </div>
+    <div class="bar"><div id="bar-fill"></div></div>
+    <pre id="log" class="hidden"></pre>
+  </footer>
+
+  <!-- Dodawanie konta -->
+  <div id="add-account" class="overlay hidden">
+    <div class="panel narrow">
+      <h2>Dodaj konto</h2>
+      <button id="btn-ms" class="primary">Konto Microsoft (premium)</button>
+      <div class="divider"><span>lub</span></div>
+      <div class="row">
+        <input id="nick" placeholder="Nick (non-premium)" maxlength="16">
+        <button id="btn-offline">Dodaj</button>
+      </div>
+      <p id="login-error" class="error"></p>
+      <div class="row end"><button id="btn-add-cancel">Anuluj</button></div>
+    </div>
+  </div>
+
+  <!-- Ustawienia -->
   <div id="settings" class="overlay hidden">
     <div class="panel">
       <h2>Ustawienia</h2>
@@ -42,6 +112,13 @@
         <option value="close">Zamknij launcher</option>
       </select>
 
+      <h3>Dodatki</h3>
+      <div id="addons-list"></div>
+
+      <h3>Konta</h3>
+      <div id="accounts-list"></div>
+      <button id="btn-add-account" class="small-btn">+ Dodaj konto</button>
+
       <h3>Folder instalacji</h3>
       <div class="row">
         <input type="text" id="game-dir" readonly>
@@ -55,7 +132,18 @@
           <button id="btn-dir-cancel">Anuluj</button>
         </div>
       </div>
-      <a href="#" id="btn-dir-default" class="small">Przywróć domyślny folder</a>
+      <div class="row links-row">
+        <a href="#" id="btn-dir-default" class="small">Przywróć domyślny folder</a>
+        <a href="#" id="btn-folder" class="small">Otwórz folder gry</a>
+      </div>
+
+      <h3>Naprawa i aktualizacje</h3>
+      <div class="row">
+        <button id="btn-repair">🔧 Napraw instalację</button>
+        <button id="btn-check-update">Sprawdź aktualizacje launchera</button>
+      </div>
+      <p class="hint">Naprawa pobiera od nowa Javę, NeoForge i biblioteki oraz sprawdza wszystkie mody. Światy i ustawienia zostają.</p>
+      <p class="hint" id="version-info"></p>
 
       <details>
         <summary>Zaawansowane</summary>
@@ -66,43 +154,12 @@
       </details>
 
       <p id="settings-error" class="error"></p>
-      <div class="row end">
+      <div class="row end sticky-actions">
         <button id="btn-settings-cancel">Anuluj</button>
         <button id="btn-settings-save" class="primary-sm">Zapisz</button>
       </div>
     </div>
   </div>
-
-  <main>
-    <section id="login" class="card hidden">
-      <h2>Zaloguj się</h2>
-      <button id="btn-ms" class="primary">Konto Microsoft (premium)</button>
-      <div class="divider"><span>lub</span></div>
-      <div class="row">
-        <input id="nick" placeholder="Nick (non-premium)" maxlength="16">
-        <button id="btn-offline">Graj bez premium</button>
-      </div>
-      <p id="login-error" class="error"></p>
-    </section>
-
-    <section id="ready" class="card hidden">
-      <p class="muted">Zalogowano jako</p>
-      <p id="player" class="player"></p>
-      <p id="acc-type" class="muted small"></p>
-      <button id="btn-play" class="play">GRAJ</button>
-      <div class="links">
-        <a href="#" id="btn-folder">Folder gry</a>
-        <a href="#" id="btn-logout">Wyloguj</a>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <div id="progress-label" class="small muted">Gotowy</div>
-    <div class="bar"><div id="bar-fill"></div></div>
-    <pre id="log"></pre>
-    <span id="version" class="small muted"></span>
-  </footer>
 
   <script src="renderer.js"></script>
 </body>

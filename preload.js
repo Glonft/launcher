@@ -1,19 +1,34 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+const invoke = (ch, ...a) => ipcRenderer.invoke(ch, ...a);
+
 contextBridge.exposeInMainWorld('launcher', {
-  getConfig: () => ipcRenderer.invoke('config:get'),
-  getAccount: () => ipcRenderer.invoke('account:get'),
-  loginOffline: (name) => ipcRenderer.invoke('account:offline', name),
-  loginMicrosoft: () => ipcRenderer.invoke('account:microsoft'),
-  logout: () => ipcRenderer.invoke('account:logout'),
-  play: () => ipcRenderer.invoke('game:play'),
-  openFolder: () => ipcRenderer.invoke('game:openFolder'),
-  getSettings: () => ipcRenderer.invoke('settings:get'),
-  saveSettings: (s) => ipcRenderer.invoke('settings:set', s),
-  pickFolder: () => ipcRenderer.invoke('settings:pickFolder'),
-  changeGameDir: (dir, move) => ipcRenderer.invoke('settings:changeGameDir', dir, move),
+  getApp: () => invoke('app:get'),
+  refreshInfo: () => invoke('info:refresh'),
+  pingServer: () => invoke('server:ping'),
+
+  getAccounts: () => invoke('accounts:get'),
+  addOffline: (name) => invoke('accounts:addOffline', name),
+  addMicrosoft: () => invoke('accounts:addMicrosoft'),
+  selectAccount: (id) => invoke('accounts:select', id),
+  removeAccount: (id) => invoke('accounts:remove', id),
+
+  play: () => invoke('game:play'),
+  repair: () => invoke('game:repair'),
+  openFolder: () => invoke('game:openFolder'),
+  openExternal: (url) => invoke('open:external', url),
+
+  getSettings: () => invoke('settings:get'),
+  saveSettings: (s) => invoke('settings:set', s),
+  pickFolder: () => invoke('settings:pickFolder'),
+  changeGameDir: (dir, move) => invoke('settings:changeGameDir', dir, move),
+
+  getUpdate: () => invoke('update:get'),
+  checkUpdate: () => invoke('update:check'),
+  installUpdate: () => invoke('update:install'),
+
   on: (channel, cb) => {
-    if (['log', 'progress', 'state', 'error', 'server'].includes(channel)) {
+    if (['log', 'progress', 'state', 'error', 'info', 'update'].includes(channel)) {
       ipcRenderer.on(channel, (_e, data) => cb(data));
     }
   },
