@@ -1,11 +1,14 @@
-# Wypchnij tag v* (np. git tag v0.1.1 && git push --tags), a GitHub zbuduje
-# instalator Windows (.exe) i Linux (.AppImage) i wrzuci je do Releases.
-# Zainstalowane launchery same pobiorą aktualizację.
+# Nowa wersja launchera: zmień "version" w package.json i zrób push na main.
+# GitHub zbuduje instalator Windows (.exe) i Linux (.AppImage), utworzy tag
+# v<wersja> i wydanie w Releases. Zainstalowane launchery same się zaktualizują.
+# Można też uruchomić ręcznie: Actions → Release launcher → Run workflow.
 name: Release launcher
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths: ['package.json', '.github/workflows/release.yml']
+  workflow_dispatch:
 
 permissions:
   contents: write

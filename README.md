@@ -21,8 +21,8 @@ Pliki gry są w `%APPDATA%\.melinasmp`.
 ## Dla admina
 
 - Konfiguracja: `config.json` (adres serwera, URL manifestu, RAM).
-- Nowa wersja launchera: podbij `version` w `package.json`, potem
-  `git tag v0.1.1 && git push --tags`. GitHub Actions zbuduje instalatory.
+- Nowa wersja launchera: podbij `version` w `package.json` i zrób push na `main`.
+  GitHub Actions zbuduje instalatory i utworzy wydanie `v<wersja>`.
 - Lokalnie (Node 20+): `npm install`, potem `npm start`.
 
 ### Logowanie Microsoft
