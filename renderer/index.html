@@ -10,7 +10,68 @@
   <header>
     <h1 id="title">Mój Serwer</h1>
     <span id="server" class="muted"></span>
+    <button id="btn-settings" class="icon" title="Ustawienia">⚙ Ustawienia</button>
   </header>
+
+  <div id="settings" class="overlay hidden">
+    <div class="panel">
+      <h2>Ustawienia</h2>
+
+      <h3>Pamięć RAM</h3>
+      <label class="field">
+        <span>Maksymalnie: <b id="ram-max-val"></b></span>
+        <input type="range" id="ram-max" min="2" step="0.5">
+      </label>
+      <p class="hint" id="ram-hint"></p>
+      <label class="field">
+        <span>Minimalnie: <b id="ram-min-val"></b></span>
+        <input type="range" id="ram-min" min="1" step="0.5">
+      </label>
+
+      <h3>Okno gry</h3>
+      <div class="row">
+        <label class="field small-field"><span>Szerokość</span><input type="number" id="win-w" min="640"></label>
+        <label class="field small-field"><span>Wysokość</span><input type="number" id="win-h" min="480"></label>
+        <label class="check"><input type="checkbox" id="fullscreen"> Pełny ekran</label>
+      </div>
+
+      <h3>Po uruchomieniu gry</h3>
+      <select id="after-launch">
+        <option value="minimize">Zminimalizuj launcher</option>
+        <option value="keep">Zostaw launcher otwarty</option>
+        <option value="close">Zamknij launcher</option>
+      </select>
+
+      <h3>Folder instalacji</h3>
+      <div class="row">
+        <input type="text" id="game-dir" readonly>
+        <button id="btn-pick">Zmień…</button>
+      </div>
+      <div id="dir-change" class="dir-change hidden">
+        <p>Nowy folder: <b id="new-dir"></b></p>
+        <label class="check"><input type="checkbox" id="move-files" checked> Przenieś obecne pliki gry (mody, Javę, światy, ustawienia)</label>
+        <div class="row">
+          <button id="btn-dir-apply" class="primary-sm">Zastosuj</button>
+          <button id="btn-dir-cancel">Anuluj</button>
+        </div>
+      </div>
+      <a href="#" id="btn-dir-default" class="small">Przywróć domyślny folder</a>
+
+      <details>
+        <summary>Zaawansowane</summary>
+        <label class="field">
+          <span>Dodatkowe argumenty Javy (oddzielone spacją)</span>
+          <input type="text" id="jvm-args" placeholder="np. -XX:+UseZGC">
+        </label>
+      </details>
+
+      <p id="settings-error" class="error"></p>
+      <div class="row end">
+        <button id="btn-settings-cancel">Anuluj</button>
+        <button id="btn-settings-save" class="primary-sm">Zapisz</button>
+      </div>
+    </div>
+  </div>
 
   <main>
     <section id="login" class="card hidden">

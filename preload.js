@@ -8,6 +8,10 @@ contextBridge.exposeInMainWorld('launcher', {
   logout: () => ipcRenderer.invoke('account:logout'),
   play: () => ipcRenderer.invoke('game:play'),
   openFolder: () => ipcRenderer.invoke('game:openFolder'),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  saveSettings: (s) => ipcRenderer.invoke('settings:set', s),
+  pickFolder: () => ipcRenderer.invoke('settings:pickFolder'),
+  changeGameDir: (dir, move) => ipcRenderer.invoke('settings:changeGameDir', dir, move),
   on: (channel, cb) => {
     if (['log', 'progress', 'state', 'error'].includes(channel)) {
       ipcRenderer.on(channel, (_e, data) => cb(data));

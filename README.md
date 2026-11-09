@@ -16,11 +16,13 @@ Przy pierwszym uruchomieniu Windows może pokazać „System Windows ochronił t
 Kliknij **Więcej informacji → Uruchom mimo to** (launcher nie jest podpisany certyfikatem).
 Pierwsze uruchomienie trwa dłużej, bo launcher pobiera Javę, NeoForge i około 450 MB modów.
 
-Pliki gry są w `%APPDATA%\.melinasmp`.
+Pliki gry są domyślnie w `%APPDATA%\.melinasmp`. W **⚙ Ustawieniach** zmienisz RAM, rozdzielczość,
+folder instalacji (z przeniesieniem plików) i zachowanie launchera po starcie gry.
 
 ## Dla admina
 
-- Konfiguracja: `config.json` (adres serwera, URL manifestu, RAM).
+- Konfiguracja: `config.json` (adres serwera, URL manifestu, domyślny RAM).
+  Ustawienia gracza są w `%APPDATA%\MelinaSMP Launcher\settings.json`.
 - Nowa wersja launchera: podbij `version` w `package.json` i zrób push na `main`.
   GitHub Actions zbuduje instalatory i utworzy wydanie `v<wersja>`.
 - Lokalnie (Node 20+): `npm install`, potem `npm start`.
