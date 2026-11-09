@@ -20,6 +20,19 @@ let busy = false; // np. przenoszenie plików
 const gb = (s) => parseFloat(String(s)) || 0; // "6G" -> 6
 const gameDir = () => settings.get().gameDir;
 
+/** Adres serwera z manifestu (można go zmienić w repo modpack), awaryjnie z config.json. */
+function serverFrom(manifest) {
+  const s = manifest && manifest.server;
+  if (s && s.host && Number(s.port)) return { name: s.name || config.appName, host: s.host, port: Number(s.port) };
+  return { name: config.appName, ...config.server };
+}
+
+/** Serwer z ostatnio pobranego manifestu – do wyświetlenia przed kliknięciem GRAJ. */
+function cachedServer() {
+  try { return serverFrom(JSON.parse(fs.readFileSync(path.join(gameDir(), 'manifest.json'), 'utf8'))); }
+  catch { return serverFrom(null); }
+}
+
 function send(channel, data) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, data);
 }
@@ -66,8 +79,10 @@ async function play() {
     progress('Sprawdzanie paczki...', 0);
     const manifest = await fetchManifest(dir);
     log(`Paczka: wersja ${manifest.version}`);
+    send('server', serverFrom(manifest));
 
-    const java = await ensureJava(dir, log, progress);
+    const server = serverFrom(manifest);
+    const java = await ensureJava(dir, log, progress, manifest.java);
     progress('Synchronizacja modów...', 0);
     await syncModpack(manifest, dir, log, progress);
 
@@ -100,7 +115,7 @@ async function play() {
       memory: { min: `${Math.round(s.minRamGB * 1024)}M`, max: `${Math.round(s.maxRamGB * 1024)}M` },
       window: s.fullscreen ? { fullscreen: true } : { width: s.width, height: s.height },
       customArgs: [...getNeoForgeJvmArgs(dir, versionId), ...extraJvm],
-      quickPlay: { type: 'multiplayer', identifier: `${config.server.host}:${config.server.port}` },
+      quickPlay: { type: 'multiplayer', identifier: `${server.host}:${server.port}` },
       overrides: { detached: s.afterLaunch === 'close' },
     });
     if (!proc) throw new Error('Nie udało się uruchomić gry – zobacz log.');
@@ -166,7 +181,7 @@ app.whenReady().then(() => {
     jvmArgs: '',
   });
 
-  ipcMain.handle('config:get', () => ({ appName: config.appName, server: config.server, version: app.getVersion() }));
+  ipcMain.handle('config:get', () => ({ appName: config.appName, server: cachedServer(), version: app.getVersion() }));
   ipcMain.handle('account:get', () => accounts.get());
   ipcMain.handle('account:offline', (_e, name) => accounts.setOffline(name));
   ipcMain.handle('account:microsoft', () => accounts.loginMicrosoft());

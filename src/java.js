@@ -21,9 +21,10 @@ function findJavaBin(dir) {
   return null;
 }
 
-/** Zapewnia Javę 21 (wymaganą przez MC 1.21.1) – pobiera Temurin JRE, jeśli brak. */
-async function ensureJava(baseDir, log, progress) {
-  const jreDir = path.join(baseDir, 'runtime', 'java21');
+/** Zapewnia Javę w wersji `major` (np. 21 dla MC 1.21.x) – pobiera Temurin JRE, jeśli brak. */
+async function ensureJava(baseDir, log, progress, major = 21) {
+  major = Number(major) || 21;
+  const jreDir = path.join(baseDir, 'runtime', `java${major}`);
   let bin = findJavaBin(jreDir);
 
   if (!bin) {
@@ -33,10 +34,10 @@ async function ensureJava(baseDir, log, progress) {
     const osName = { win32: 'windows', linux: 'linux', darwin: 'mac' }[process.platform];
     const arch = { x64: 'x64', arm64: 'aarch64' }[process.arch];
     const ext = isWin ? 'zip' : 'tar.gz';
-    const url = `https://api.adoptium.net/v3/binary/latest/21/ga/${osName}/${arch}/jre/hotspot/normal/eclipse`;
-    const archive = path.join(baseDir, 'runtime', `java21.${ext}`);
+    const url = `https://api.adoptium.net/v3/binary/latest/${major}/ga/${osName}/${arch}/jre/hotspot/normal/eclipse`;
+    const archive = path.join(baseDir, 'runtime', `java${major}.${ext}`);
 
-    log('Pobieranie Javy 21...');
+    log(`Pobieranie Javy ${major}...`);
     await download(url, archive, null, (d, t) => progress('Pobieranie Javy', t ? d / t : 0));
     try {
       fs.mkdirSync(jreDir, { recursive: true });
@@ -55,7 +56,7 @@ async function ensureJava(baseDir, log, progress) {
       fs.rmSync(jreDir, { recursive: true, force: true });
       throw new Error('Java po rozpakowaniu jest niekompletna – spróbuj ponownie.');
     }
-    log('Java 21 gotowa.');
+    log(`Java ${major} gotowa.`);
   }
 
   return {

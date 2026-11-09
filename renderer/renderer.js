@@ -17,11 +17,15 @@ function addLog(msg) {
   el.scrollTop = el.scrollHeight;
 }
 
+function showServer(srv) {
+  $('server').textContent = srv.port === 25565 ? srv.host : `${srv.host}:${srv.port}`;
+}
+
 async function init() {
   const cfg = await L.getConfig();
   document.title = cfg.appName;
   $('title').textContent = cfg.appName;
-  $('server').textContent = cfg.server.host;
+  showServer(cfg.server);
   $('version').textContent = `v${cfg.version}`;
   show(await L.getAccount());
 }
@@ -48,6 +52,7 @@ $('btn-play').onclick = () => {
 };
 
 L.on('log', addLog);
+L.on('server', showServer);
 L.on('progress', ({ label, value }) => {
   $('progress-label').textContent = label;
   $('bar-fill').style.width = `${Math.round((value || 0) * 100)}%`;

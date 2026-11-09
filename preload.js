@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('launcher', {
   pickFolder: () => ipcRenderer.invoke('settings:pickFolder'),
   changeGameDir: (dir, move) => ipcRenderer.invoke('settings:changeGameDir', dir, move),
   on: (channel, cb) => {
-    if (['log', 'progress', 'state', 'error'].includes(channel)) {
+    if (['log', 'progress', 'state', 'error', 'server'].includes(channel)) {
       ipcRenderer.on(channel, (_e, data) => cb(data));
     }
   },
