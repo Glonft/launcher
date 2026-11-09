@@ -10,15 +10,26 @@ const { syncModpack } = require('./src/sync');
 const { ensureJava } = require('./src/java');
 const { ensureNeoForge, getNeoForgeJvmArgs } = require('./src/neoforge');
 const { SettingsStore, isEmptyDir, isInside } = require('./src/settings');
+const { pingServer } = require('./src/ping');
 
 let win;
 let accounts;
 let settings;
 let running = false;
-let busy = false; // np. przenoszenie plików
+let busy = false; // przenoszenie plików / naprawa
+let updateState = { state: 'idle' };
 
 const gb = (s) => parseFloat(String(s)) || 0; // "6G" -> 6
 const gameDir = () => settings.get().gameDir;
+
+function send(channel, data) {
+  if (win && !win.isDestroyed()) win.webContents.send(channel, data);
+}
+const log = (msg) => { if (msg) send('log', msg); };
+const progress = (label, value) => send('progress', { label, value });
+const setState = (s) => send('state', s);
+
+// ---------- manifest ----------
 
 /** Adres serwera z manifestu (można go zmienić w repo modpack), awaryjnie z config.json. */
 function serverFrom(manifest) {
@@ -27,32 +38,12 @@ function serverFrom(manifest) {
   return { name: config.appName, ...config.server };
 }
 
-/** Serwer z ostatnio pobranego manifestu – do wyświetlenia przed kliknięciem GRAJ. */
-function cachedServer() {
-  try { return serverFrom(JSON.parse(fs.readFileSync(path.join(gameDir(), 'manifest.json'), 'utf8'))); }
-  catch { return serverFrom(null); }
+function cachedManifest() {
+  try { return JSON.parse(fs.readFileSync(path.join(gameDir(), 'manifest.json'), 'utf8')); }
+  catch { return null; }
 }
 
-function send(channel, data) {
-  if (win && !win.isDestroyed()) win.webContents.send(channel, data);
-}
-const log = (msg) => { if (msg) send('log', msg); };
-const progress = (label, value) => send('progress', { label, value });
-
-function createWindow() {
-  win = new BrowserWindow({
-    width: 900,
-    height: 560,
-    resizable: false,
-    title: config.appName,
-    backgroundColor: '#14161c',
-    autoHideMenuBar: true,
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
-  });
-  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-}
-
-async function fetchManifest(dir) {
+async function fetchManifest(dir, quiet = false) {
   const cache = path.join(dir, 'manifest.json');
   try {
     const res = await fetch(`${config.manifestUrl}?t=${Date.now()}`);
@@ -63,31 +54,52 @@ async function fetchManifest(dir) {
     return manifest;
   } catch (e) {
     if (fs.existsSync(cache)) {
-      log(`Nie udało się pobrać manifestu (${e.message}) – używam zapisanej wersji.`);
+      if (!quiet) log(`Nie udało się pobrać manifestu (${e.message}) – używam zapisanej wersji.`);
       return JSON.parse(fs.readFileSync(cache, 'utf8'));
     }
     throw new Error(`Nie można pobrać listy modów: ${e.message}`);
   }
 }
 
+/** Informacje dla ekranu głównego: serwer, newsy, dodatki. */
+function publicInfo(manifest) {
+  return {
+    server: serverFrom(manifest),
+    news: (manifest && manifest.news) || [],
+    optional: ((manifest && manifest.optional) || []).map((g) => ({
+      id: g.id, name: g.name, description: g.description || '', default: !!g.default,
+    })),
+    packVersion: manifest ? manifest.version : null,
+  };
+}
+
+// ---------- gra ----------
+
+/** Java + mody + NeoForge. Zwraca wszystko, czego trzeba do startu. */
+async function prepare(dir) {
+  progress('Sprawdzanie paczki...', 0);
+  const manifest = await fetchManifest(dir);
+  log(`Paczka: wersja ${manifest.version}`);
+  send('info', publicInfo(manifest));
+
+  const java = await ensureJava(dir, log, progress, manifest.java);
+  progress('Synchronizacja modów...', 0);
+  await syncModpack(manifest, dir, log, progress, settings.get().addons || {});
+
+  progress('Przygotowanie NeoForge...', 0);
+  const versionId = await ensureNeoForge(dir, manifest.loader.version, java.java, log);
+  return { manifest, java, versionId };
+}
+
 async function play() {
   if (running || busy) return;
   running = true;
+  setState('preparing');
   const s = settings.get();
   const dir = s.gameDir;
   try {
-    progress('Sprawdzanie paczki...', 0);
-    const manifest = await fetchManifest(dir);
-    log(`Paczka: wersja ${manifest.version}`);
-    send('server', serverFrom(manifest));
-
+    const { manifest, java, versionId } = await prepare(dir);
     const server = serverFrom(manifest);
-    const java = await ensureJava(dir, log, progress, manifest.java);
-    progress('Synchronizacja modów...', 0);
-    await syncModpack(manifest, dir, log, progress);
-
-    progress('Przygotowanie NeoForge...', 0);
-    const versionId = await ensureNeoForge(dir, manifest.loader.version, java.java, log);
 
     progress('Logowanie...', 0);
     const authorization = await accounts.getLaunchAuth();
@@ -99,7 +111,7 @@ async function play() {
     launcher.on('close', (code) => {
       log(`Gra zamknięta (kod ${code}).`);
       running = false;
-      send('state', 'idle');
+      setState('idle');
       if (win && !win.isDestroyed()) win.restore();
     });
 
@@ -119,7 +131,7 @@ async function play() {
       overrides: { detached: s.afterLaunch === 'close' },
     });
     if (!proc) throw new Error('Nie udało się uruchomić gry – zobacz log.');
-    send('state', 'running');
+    setState('running');
 
     if (s.afterLaunch === 'close') {
       proc.unref();
@@ -129,8 +141,35 @@ async function play() {
     }
   } catch (e) {
     running = false;
-    send('state', 'idle');
+    setState('idle');
     send('error', e.message || String(e));
+  }
+}
+
+/** Naprawa: usuwa Javę, NeoForge, biblioteki i pliki tymczasowe, potem przygotowuje wszystko od nowa. */
+async function repair() {
+  if (running || busy) throw new Error('Poczekaj, aż gra zostanie zamknięta.');
+  busy = true;
+  setState('busy');
+  const dir = gameDir();
+  try {
+    log('Naprawa: usuwanie Javy, NeoForge i bibliotek (światy, ustawienia i zasoby zostają)...');
+    for (const sub of ['runtime', 'versions', 'libraries', 'cache']) {
+      await fs.promises.rm(path.join(dir, sub), { recursive: true, force: true });
+    }
+    const modsDir = path.join(dir, 'mods');
+    if (fs.existsSync(modsDir)) {
+      for (const f of fs.readdirSync(modsDir)) if (f.endsWith('.part')) fs.rmSync(path.join(modsDir, f), { force: true });
+    }
+    await prepare(dir);
+    log('Naprawa zakończona – możesz grać.');
+    progress('Naprawa zakończona', 1);
+  } catch (e) {
+    send('error', e.message || String(e));
+    throw e;
+  } finally {
+    busy = false;
+    setState('idle');
   }
 }
 
@@ -150,7 +189,7 @@ async function changeGameDir(newDir, move) {
   if (move && fs.existsSync(oldDir)) {
     if (!isEmptyDir(newDir)) throw new Error('Aby przenieść pliki, wybierz pusty folder.');
     busy = true;
-    send('state', 'busy');
+    setState('busy');
     try {
       progress('Przenoszenie plików gry...', 0);
       log(`Przenoszenie ${oldDir} → ${newDir} (może potrwać kilka minut)...`);
@@ -159,7 +198,7 @@ async function changeGameDir(newDir, move) {
       log('Pliki przeniesione.');
     } finally {
       busy = false;
-      send('state', 'idle');
+      setState('idle');
     }
   } else {
     fs.mkdirSync(newDir, { recursive: true });
@@ -167,9 +206,32 @@ async function changeGameDir(newDir, move) {
   return settings.set({ gameDir: newDir });
 }
 
+// ---------- aktualizacje launchera ----------
+
+function setUpdate(s) {
+  updateState = s;
+  send('update', s);
+}
+
+function initUpdater() {
+  if (!app.isPackaged) { updateState = { state: 'dev' }; return; }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('checking-for-update', () => setUpdate({ state: 'checking' }));
+  autoUpdater.on('update-not-available', () => setUpdate({ state: 'latest' }));
+  autoUpdater.on('update-available', (i) => setUpdate({ state: 'downloading', version: i.version, percent: 0 }));
+  autoUpdater.on('download-progress', (p) => setUpdate({ ...updateState, state: 'downloading', percent: Math.round(p.percent) }));
+  autoUpdater.on('update-downloaded', (i) => setUpdate({ state: 'ready', version: i.version }));
+  autoUpdater.on('error', (e) => setUpdate({ state: 'error', error: String(e && e.message || e).split('\n')[0] }));
+  autoUpdater.checkForUpdates().catch(() => {});
+  setInterval(() => { if (updateState.state !== 'ready') autoUpdater.checkForUpdates().catch(() => {}); }, 60 * 60 * 1000);
+}
+
+// ---------- start ----------
+
 app.whenReady().then(() => {
   const userData = app.getPath('userData');
-  accounts = new AccountStore(path.join(userData, 'account.json'), config.microsoftClientId);
+  accounts = new AccountStore(path.join(userData, 'accounts.json'), config.microsoftClientId);
   settings = new SettingsStore(path.join(userData, 'settings.json'), {
     gameDir: path.join(app.getPath('appData'), config.gameDirName),
     maxRamGB: Math.min(gb(config.memory.max) || 6, SettingsStore.systemInfo().maxAllowedRamGB),
@@ -179,20 +241,36 @@ app.whenReady().then(() => {
     fullscreen: false,
     afterLaunch: 'minimize',
     jvmArgs: '',
+    addons: {},
   });
 
-  ipcMain.handle('config:get', () => ({ appName: config.appName, server: cachedServer(), version: app.getVersion() }));
-  ipcMain.handle('account:get', () => accounts.get());
-  ipcMain.handle('account:offline', (_e, name) => accounts.setOffline(name));
-  ipcMain.handle('account:microsoft', () => accounts.loginMicrosoft());
-  ipcMain.handle('account:logout', () => accounts.logout());
+  ipcMain.handle('app:get', () => ({ appName: config.appName, version: app.getVersion(), info: publicInfo(cachedManifest()) }));
+  ipcMain.handle('info:refresh', async () => {
+    try { return publicInfo(await fetchManifest(gameDir(), true)); } catch { return publicInfo(cachedManifest()); }
+  });
+  ipcMain.handle('server:ping', async () => {
+    const srv = serverFrom(cachedManifest());
+    return { server: srv, ...(await pingServer(srv.host, srv.port)) };
+  });
+
+  ipcMain.handle('accounts:get', () => accounts.state());
+  ipcMain.handle('accounts:addOffline', (_e, name) => accounts.addOffline(name));
+  ipcMain.handle('accounts:addMicrosoft', () => accounts.addMicrosoft());
+  ipcMain.handle('accounts:select', (_e, id) => accounts.select(id));
+  ipcMain.handle('accounts:remove', (_e, id) => accounts.remove(id));
+
   ipcMain.handle('game:play', () => play());
+  ipcMain.handle('game:repair', () => repair());
   ipcMain.handle('game:openFolder', () => shell.openPath(gameDir()));
+  ipcMain.handle('open:external', (_e, url) => {
+    if (/^https:\/\//.test(url)) shell.openExternal(url);
+  });
 
   ipcMain.handle('settings:get', () => ({
     settings: settings.get(),
     system: SettingsStore.systemInfo(),
     defaultGameDir: path.join(app.getPath('appData'), config.gameDirName),
+    optional: publicInfo(cachedManifest()).optional,
   }));
   ipcMain.handle('settings:set', (_e, input) => {
     const { gameDir: _ignored, ...rest } = input || {}; // folder zmienia się osobno
@@ -208,12 +286,33 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('settings:changeGameDir', (_e, dir, move) => changeGameDir(dir, move));
 
-  createWindow();
+  ipcMain.handle('update:get', () => updateState);
+  ipcMain.handle('update:check', () => {
+    if (!app.isPackaged) return setUpdate({ state: 'dev' });
+    return autoUpdater.checkForUpdates().catch((e) => setUpdate({ state: 'error', error: e.message }));
+  });
+  ipcMain.handle('update:install', () => {
+    if (running) throw new Error('Zamknij grę przed aktualizacją launchera.');
+    if (updateState.state === 'ready') autoUpdater.quitAndInstall(true, true);
+  });
 
-  if (app.isPackaged) {
-    autoUpdater.on('update-downloaded', () => send('log', 'Pobrano nową wersję launchera – zainstaluje się po zamknięciu.'));
-    autoUpdater.checkForUpdatesAndNotify().catch(() => {});
-  }
+  win = new BrowserWindow({
+    width: 980,
+    height: 600,
+    resizable: false,
+    title: config.appName,
+    icon: path.join(__dirname, 'renderer', 'logo.png'),
+    backgroundColor: '#14161c',
+    autoHideMenuBar: true,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
+  });
+  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https:\/\//.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  initUpdater();
 });
 
 app.on('window-all-closed', () => app.quit());

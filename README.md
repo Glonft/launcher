@@ -5,12 +5,17 @@ Launcher serwera **MelinaSMP** (`pl20.icehost.pl:50094`, NeoForge 1.21.1).
 - Logowanie kontem Microsoft (premium) lub nickiem (non-premium).
 - Automatyczna synchronizacja modów z [Glonft/modpack](https://github.com/Glonft/modpack).
 - Sam pobiera Javę 21 i NeoForge, łączy od razu z serwerem.
-- Sam się aktualizuje (GitHub Releases).
+- Sam się aktualizuje (pasek u góry z przyciskiem „Uruchom ponownie i zaktualizuj”).
+- Status serwera na żywo: online/offline, liczba graczy, ping i nicki graczy.
+- Aktualności z repo modpack (`news.md`).
+- Wiele kont i szybkie przełączanie.
+- Dodatki do włączenia (shadery, resourcepacki) i przycisk „Napraw instalację”.
 
 ## Dla graczy
 
-Pobierz `MelinaSMP-Launcher-Setup-*.exe` z [Releases](https://github.com/Glonft/launcher/releases/latest),
-zainstaluj i kliknij **GRAJ**.
+Strona serwera: https://glonft.github.io/modpack/
+
+Bezpośredni link: https://github.com/Glonft/launcher/releases/latest/download/MelinaSMP-Launcher-Setup.exe
 
 Przy pierwszym uruchomieniu Windows może pokazać „System Windows ochronił ten komputer”.
 Kliknij **Więcej informacji → Uruchom mimo to** (launcher nie jest podpisany certyfikatem).

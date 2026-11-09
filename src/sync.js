@@ -20,16 +20,26 @@ function safeJoin(base, rel) {
   return abs;
 }
 
+/** Które dodatki opcjonalne są włączone (ustawienie gracza albo domyślne z paczki). */
+function enabledAddons(manifest, choices = {}) {
+  return (manifest.optional || []).filter((g) => (g.id in choices ? !!choices[g.id] : !!g.default));
+}
+
 /**
  * Doprowadza folder gry do stanu z manifestu:
  *  - pobiera brakujące / zmienione pliki (porównanie SHA-1),
- *  - usuwa z "managedDirs" (domyślnie mods/) wszystko, czego nie ma w manifeście.
+ *  - usuwa z "managedDirs" (domyślnie mods/) wszystko, czego nie ma w manifeście,
+ *  - dodatki opcjonalne: włączone pobiera, wyłączone usuwa.
  */
-async function syncModpack(manifest, gameDir, log, progress) {
+async function syncModpack(manifest, gameDir, log, progress, addonChoices = {}) {
+  const enabled = enabledAddons(manifest, addonChoices);
+  const enabledIds = new Set(enabled.map((g) => g.id));
+  const files = [...manifest.files, ...enabled.flatMap((g) => g.files)];
+
   const wanted = new Set();
   const toDownload = [];
 
-  for (const f of manifest.files) {
+  for (const f of files) {
     const dest = safeJoin(gameDir, f.path);
     wanted.add(dest);
     if (fs.existsSync(dest)) {
@@ -37,6 +47,18 @@ async function syncModpack(manifest, gameDir, log, progress) {
       if ((await sha1File(dest)) === f.sha1.toLowerCase()) continue;
     }
     toDownload.push({ ...f, dest });
+  }
+
+  // wyłączone dodatki – usuń ich pliki (także spoza managedDirs, np. shaderpacks/)
+  for (const g of manifest.optional || []) {
+    if (enabledIds.has(g.id)) continue;
+    for (const f of g.files) {
+      const dest = safeJoin(gameDir, f.path);
+      if (!wanted.has(dest) && fs.existsSync(dest)) {
+        fs.rmSync(dest);
+        log(`Wyłączony dodatek „${g.name}”: usunięto ${f.path}`);
+      }
+    }
   }
 
   for (const dir of manifest.managedDirs || ['mods']) {
@@ -61,4 +83,4 @@ async function syncModpack(manifest, gameDir, log, progress) {
   log(toDownload.length ? `Zaktualizowano ${toDownload.length} plików.` : 'Paczka jest aktualna.');
 }
 
-module.exports = { syncModpack };
+module.exports = { syncModpack, enabledAddons };

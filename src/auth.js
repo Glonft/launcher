@@ -1,17 +1,45 @@
 const fs = require('fs');
+const path = require('path');
 const { safeStorage } = require('electron');
 const { Auth } = require('msmc');
 const { Authenticator } = require('minecraft-launcher-core');
 
 /**
- * Konto zapisane na dysku:
- *  { type: 'offline', name }
- *  { type: 'microsoft', name, uuid, refresh }  // refresh zaszyfrowany przez safeStorage
+ * Wiele kont zapisanych w accounts.json:
+ * { active: "<id>", list: [
+ *   { id: "offline:nick", type: "offline", name },
+ *   { id: "ms:<uuid>", type: "microsoft", name, uuid, refresh, encrypted } ] }
+ * Token odświeżania Microsoft jest szyfrowany przez safeStorage (DPAPI na Windows).
  */
 class AccountStore {
   constructor(file, clientId) {
     this.file = file;
     this.clientId = clientId;
+    this._migrate();
+  }
+
+  // Wersje <0.4 trzymały jedno konto w account.json
+  _migrate() {
+    const old = path.join(path.dirname(this.file), 'account.json');
+    if (fs.existsSync(this.file) || !fs.existsSync(old)) return;
+    try {
+      const a = JSON.parse(fs.readFileSync(old, 'utf8'));
+      const id = a.type === 'microsoft' ? `ms:${a.uuid}` : `offline:${String(a.name).toLowerCase()}`;
+      this._write({ active: id, list: [{ id, ...a }] });
+      fs.rmSync(old, { force: true });
+    } catch { /* uszkodzony stary plik – ignorujemy */ }
+  }
+
+  _read() {
+    try {
+      const d = JSON.parse(fs.readFileSync(this.file, 'utf8'));
+      return { active: d.active || null, list: Array.isArray(d.list) ? d.list : [] };
+    } catch { return { active: null, list: [] }; }
+  }
+
+  _write(d) {
+    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    fs.writeFileSync(this.file, JSON.stringify(d));
   }
 
   _auth() {
@@ -20,60 +48,82 @@ class AccountStore {
       : new Auth('select_account');
   }
 
-  get() {
-    try {
-      const a = JSON.parse(fs.readFileSync(this.file, 'utf8'));
-      return { type: a.type, name: a.name };
-    } catch { return null; }
+  _enc(s) {
+    return safeStorage.isEncryptionAvailable()
+      ? { refresh: safeStorage.encryptString(s).toString('base64'), encrypted: true }
+      : { refresh: s, encrypted: false };
   }
 
-  _save(data) {
-    fs.writeFileSync(this.file, JSON.stringify(data));
+  _dec(a) {
+    return a.encrypted ? safeStorage.decryptString(Buffer.from(a.refresh, 'base64')) : a.refresh;
   }
 
-  logout() {
-    fs.rmSync(this.file, { force: true });
+  _upsert(acc) {
+    const d = this._read();
+    d.list = d.list.filter((a) => a.id !== acc.id).concat(acc);
+    d.active = acc.id;
+    this._write(d);
   }
 
-  setOffline(name) {
-    if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) {
-      throw new Error('Nick: 3–16 znaków, tylko litery, cyfry i _');
-    }
-    this._save({ type: 'offline', name });
-    return { type: 'offline', name };
+  /** Publiczny widok (bez tokenów). */
+  state() {
+    const d = this._read();
+    const pub = (a) => ({ id: a.id, type: a.type, name: a.name });
+    const active = d.list.find((a) => a.id === d.active) || d.list[0] || null;
+    return { active: active ? pub(active) : null, list: d.list.map(pub) };
   }
 
-  async loginMicrosoft() {
+  select(id) {
+    const d = this._read();
+    if (!d.list.some((a) => a.id === id)) throw new Error('Nie ma takiego konta.');
+    d.active = id;
+    this._write(d);
+    return this.state();
+  }
+
+  remove(id) {
+    const d = this._read();
+    d.list = d.list.filter((a) => a.id !== id);
+    if (d.active === id) d.active = d.list[0] ? d.list[0].id : null;
+    this._write(d);
+    return this.state();
+  }
+
+  addOffline(name) {
+    name = String(name || '').trim();
+    if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) throw new Error('Nick: 3–16 znaków, tylko litery, cyfry i _');
+    this._upsert({ id: `offline:${name.toLowerCase()}`, type: 'offline', name });
+    return this.state();
+  }
+
+  async addMicrosoft() {
     const xbox = await this._auth().launch('electron');
     const mc = await xbox.getMinecraft();
-    const refresh = xbox.save();
-    this._save({
+    this._upsert({
+      id: `ms:${mc.profile.id}`,
       type: 'microsoft',
       name: mc.profile.name,
       uuid: mc.profile.id,
-      refresh: safeStorage.isEncryptionAvailable()
-        ? safeStorage.encryptString(refresh).toString('base64')
-        : refresh,
-      encrypted: safeStorage.isEncryptionAvailable(),
+      ...this._enc(xbox.save()),
     });
-    return { type: 'microsoft', name: mc.profile.name };
+    return this.state();
   }
 
-  /** Zwraca obiekt autoryzacji dla minecraft-launcher-core. */
+  /** Obiekt autoryzacji aktywnego konta dla minecraft-launcher-core. */
   async getLaunchAuth() {
-    const a = JSON.parse(fs.readFileSync(this.file, 'utf8'));
+    const d = this._read();
+    const a = d.list.find((x) => x.id === d.active) || d.list[0];
+    if (!a) throw new Error('Najpierw dodaj konto.');
     if (a.type === 'offline') return Authenticator.getAuth(a.name);
 
-    const refresh = a.encrypted
-      ? safeStorage.decryptString(Buffer.from(a.refresh, 'base64'))
-      : a.refresh;
-    const xbox = await this._auth().refresh(refresh);
+    let xbox;
+    try {
+      xbox = await this._auth().refresh(this._dec(a));
+    } catch (e) {
+      throw new Error(`Sesja konta Microsoft wygasła – usuń konto ${a.name} i dodaj je ponownie. (${e.message || e})`);
+    }
     const mc = await xbox.getMinecraft();
-    // zapisz odświeżony token
-    const newRefresh = xbox.save();
-    a.refresh = a.encrypted ? safeStorage.encryptString(newRefresh).toString('base64') : newRefresh;
-    a.name = mc.profile.name;
-    this._save(a);
+    this._upsert({ ...a, name: mc.profile.name, ...this._enc(xbox.save()) });
     return mc.mclc();
   }
 }
