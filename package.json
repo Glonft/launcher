@@ -1,8 +1,8 @@
 {
   "name": "melinasmp-launcher",
   "productName": "MelinaSMP Launcher",
-  "version": "0.2.0",
-  "description": "Launcher serwera Minecraft z automatyczną synchronizacją modów",
+  "version": "0.2.1",
+  "description": "MelinaSMP Launcher",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -50,7 +50,10 @@
         "repo": "launcher",
         "releaseType": "release"
       }
-    ]
+    ],
+    "copyright": "Copyright © 2026 Zelek"
   },
-  "author": "Glonft"
+  "author": {
+    "name": "Zelek"
+  }
 }
