@@ -6,12 +6,16 @@ const { download } = require('./download');
 
 const isWin = process.platform === 'win32';
 
+/** Szuka kompletnej Javy (bin/java + lib/jvm.cfg) w podfolderach `dir`. */
 function findJavaBin(dir) {
   if (!fs.existsSync(dir)) return null;
   for (const e of fs.readdirSync(dir)) {
-    for (const sub of ['bin', path.join('Contents', 'Home', 'bin')]) {
-      const bin = path.join(dir, e, sub);
-      if (fs.existsSync(path.join(bin, isWin ? 'java.exe' : 'java'))) return bin;
+    for (const home of [path.join(dir, e), path.join(dir, e, 'Contents', 'Home')]) {
+      const bin = path.join(home, 'bin');
+      const ok =
+        fs.existsSync(path.join(bin, isWin ? 'java.exe' : 'java')) &&
+        fs.existsSync(path.join(home, 'lib', 'jvm.cfg'));
+      if (ok) return bin;
     }
   }
   return null;
@@ -23,6 +27,9 @@ async function ensureJava(baseDir, log, progress) {
   let bin = findJavaBin(jreDir);
 
   if (!bin) {
+    // usuń ewentualnie uszkodzoną/niepełną instalację
+    fs.rmSync(jreDir, { recursive: true, force: true });
+
     const osName = { win32: 'windows', linux: 'linux', darwin: 'mac' }[process.platform];
     const arch = { x64: 'x64', arm64: 'aarch64' }[process.arch];
     const ext = isWin ? 'zip' : 'tar.gz';
@@ -31,13 +38,24 @@ async function ensureJava(baseDir, log, progress) {
 
     log('Pobieranie Javy 21...');
     await download(url, archive, null, (d, t) => progress('Pobieranie Javy', t ? d / t : 0));
-    fs.mkdirSync(jreDir, { recursive: true });
-    if (ext === 'zip') await extractZip(archive, { dir: jreDir });
-    else await tar.x({ file: archive, cwd: jreDir });
-    fs.rmSync(archive, { force: true });
+    try {
+      fs.mkdirSync(jreDir, { recursive: true });
+      log('Rozpakowywanie Javy...');
+      if (ext === 'zip') await extractZip(archive, { dir: jreDir });
+      else await tar.x({ file: archive, cwd: jreDir });
+    } catch (e) {
+      fs.rmSync(jreDir, { recursive: true, force: true });
+      throw new Error(`Nie udało się rozpakować Javy: ${e.message}`);
+    } finally {
+      fs.rmSync(archive, { force: true });
+    }
 
     bin = findJavaBin(jreDir);
-    if (!bin) throw new Error('Nie udało się rozpakować Javy.');
+    if (!bin) {
+      fs.rmSync(jreDir, { recursive: true, force: true });
+      throw new Error('Java po rozpakowaniu jest niekompletna – spróbuj ponownie.');
+    }
+    log('Java 21 gotowa.');
   }
 
   return {

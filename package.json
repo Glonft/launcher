@@ -1,7 +1,7 @@
 {
   "name": "melinasmp-launcher",
   "productName": "MelinaSMP Launcher",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Launcher serwera Minecraft z automatyczną synchronizacją modów",
   "main": "main.js",
   "scripts": {
