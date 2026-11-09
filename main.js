@@ -8,7 +8,7 @@ const config = require('./config.json');
 const { AccountStore } = require('./src/auth');
 const { syncModpack } = require('./src/sync');
 const { ensureJava } = require('./src/java');
-const { ensureNeoForge } = require('./src/neoforge');
+const { ensureNeoForge, getNeoForgeJvmArgs } = require('./src/neoforge');
 
 const gameDir = path.join(app.getPath('appData'), config.gameDirName);
 let win;
@@ -88,6 +88,7 @@ async function play() {
       javaPath: java.javaw,
       version: { number: manifest.minecraft, type: 'release', custom: versionId },
       memory: { min: config.memory.min, max: config.memory.max },
+      customArgs: getNeoForgeJvmArgs(gameDir, versionId),
       quickPlay: { type: 'multiplayer', identifier: `${config.server.host}:${config.server.port}` },
       overrides: { detached: false },
     });
