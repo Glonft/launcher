@@ -1,0 +1,32 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0; height: 100vh; display: flex; flex-direction: column;
+  font-family: "Segoe UI", system-ui, sans-serif; color: #e8e8ec;
+  background: radial-gradient(circle at 30% 20%, #23402b 0%, #14161c 60%);
+  user-select: none;
+}
+header { padding: 18px 24px; display: flex; align-items: baseline; gap: 14px; }
+h1 { margin: 0; font-size: 26px; letter-spacing: .5px; }
+h2 { margin: 0 0 16px; font-size: 18px; }
+main { flex: 1; display: flex; align-items: center; justify-content: center; }
+.card { background: rgba(20, 22, 28, .85); border: 1px solid #2c303a; border-radius: 12px; padding: 26px 30px; width: 380px; text-align: center; }
+.hidden { display: none; }
+.muted { color: #8b8f9a; }
+.small { font-size: 12px; }
+.error { color: #ff7a7a; min-height: 18px; font-size: 13px; }
+button { font: inherit; border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; background: #2c303a; color: #e8e8ec; }
+button:hover { filter: brightness(1.15); }
+button:disabled { opacity: .5; cursor: default; }
+.primary { width: 100%; background: #2f6fde; }
+.play { width: 100%; margin-top: 18px; padding: 14px; font-size: 20px; font-weight: 700; letter-spacing: 2px; background: #3fa34d; }
+.row { display: flex; gap: 8px; }
+input { flex: 1; font: inherit; padding: 10px; border-radius: 8px; border: 1px solid #2c303a; background: #0e1014; color: inherit; }
+.divider { margin: 16px 0; border-top: 1px solid #2c303a; position: relative; }
+.divider span { position: relative; top: -10px; background: #16181e; padding: 0 8px; font-size: 12px; color: #8b8f9a; }
+.player { font-size: 22px; font-weight: 600; margin: 4px 0; }
+.links { margin-top: 14px; display: flex; justify-content: space-between; }
+a { color: #8fb4ff; text-decoration: none; font-size: 13px; }
+footer { padding: 10px 24px 14px; }
+.bar { height: 6px; background: #2c303a; border-radius: 3px; overflow: hidden; margin: 6px 0; }
+#bar-fill { height: 100%; width: 0; background: #3fa34d; transition: width .2s; }
+#log { height: 70px; overflow-y: auto; margin: 0; font-size: 11px; color: #8b8f9a; white-space: pre-wrap; user-select: text; }

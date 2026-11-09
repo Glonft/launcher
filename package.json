@@ -1,0 +1,56 @@
+{
+  "name": "melinasmp-launcher",
+  "productName": "MelinaSMP Launcher",
+  "version": "0.1.0",
+  "description": "Launcher serwera Minecraft z automatyczną synchronizacją modów",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never",
+    "release": "electron-builder --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9",
+    "extract-zip": "^2.0.1",
+    "minecraft-launcher-core": "^3.18.2",
+    "msmc": "^5.0.5",
+    "tar": "^7.4.3"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "pl.glonft.launcher",
+    "productName": "MelinaSMP Launcher",
+    "files": [
+      "main.js",
+      "preload.js",
+      "config.json",
+      "src/**",
+      "renderer/**"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "MelinaSMP-Launcher-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Game",
+      "artifactName": "MelinaSMP-Launcher-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Glonft",
+        "repo": "launcher",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "author": "Glonft"
+}

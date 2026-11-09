@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+  <title>Launcher</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1 id="title">Mój Serwer</h1>
+    <span id="server" class="muted"></span>
+  </header>
+
+  <main>
+    <section id="login" class="card hidden">
+      <h2>Zaloguj się</h2>
+      <button id="btn-ms" class="primary">Konto Microsoft (premium)</button>
+      <div class="divider"><span>lub</span></div>
+      <div class="row">
+        <input id="nick" placeholder="Nick (non-premium)" maxlength="16">
+        <button id="btn-offline">Graj bez premium</button>
+      </div>
+      <p id="login-error" class="error"></p>
+    </section>
+
+    <section id="ready" class="card hidden">
+      <p class="muted">Zalogowano jako</p>
+      <p id="player" class="player"></p>
+      <p id="acc-type" class="muted small"></p>
+      <button id="btn-play" class="play">GRAJ</button>
+      <div class="links">
+        <a href="#" id="btn-folder">Folder gry</a>
+        <a href="#" id="btn-logout">Wyloguj</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div id="progress-label" class="small muted">Gotowy</div>
+    <div class="bar"><div id="bar-fill"></div></div>
+    <pre id="log"></pre>
+    <span id="version" class="small muted"></span>
+  </footer>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
