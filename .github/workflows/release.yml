@@ -58,3 +58,9 @@ jobs:
       - run: npm run release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Opis wydania na GitHubie z CHANGELOG.md
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "v$(node -p "require('./package.json').version")" --repo "$GITHUB_REPOSITORY" --notes-file build/release-notes.md
