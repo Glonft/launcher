@@ -33,11 +33,20 @@ function activeSkin(profile) {
   return s ? { url: String(s.url).replace(/^http:/, 'https:'), variant: s.variant === 'SLIM' ? 'slim' : 'classic' } : null;
 }
 
+function capesOf(profile) {
+  return (profile.capes || []).map((c) => ({
+    id: c.id,
+    name: c.alias || 'Peleryna',
+    url: String(c.url).replace(/^http:/, 'https:'),
+    active: c.state === 'ACTIVE',
+  }));
+}
+
 async function getProfile(token) {
   const res = await fetch(API, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw await apiError(res, 'Nie udało się pobrać profilu');
   const p = await res.json();
-  return { id: p.id, name: p.name, skin: activeSkin(p) };
+  return { id: p.id, name: p.name, skin: activeSkin(p), capes: capesOf(p) };
 }
 
 async function toDataUrl(url) {
@@ -60,4 +69,16 @@ async function resetSkin(token) {
   if (!res.ok) throw await apiError(res, 'Nie udało się przywrócić domyślnego skina');
 }
 
-module.exports = { validateSkin, getProfile, toDataUrl, uploadSkin, resetSkin };
+/** Zakłada posiadaną pelerynę (id) albo ją chowa (null). */
+async function setCape(token, capeId) {
+  const res = capeId
+    ? await fetch(`${API}/capes/active`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ capeId }),
+    })
+    : await fetch(`${API}/capes/active`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw await apiError(res, capeId ? 'Nie udało się założyć peleryny' : 'Nie udało się schować peleryny');
+}
+
+module.exports = { validateSkin, getProfile, toDataUrl, uploadSkin, resetSkin, setCape };

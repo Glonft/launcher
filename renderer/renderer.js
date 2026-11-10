@@ -151,65 +151,73 @@ const addOffline = async () => {
 $('btn-offline').onclick = addOffline;
 $('nick').onkeydown = (e) => { if (e.key === 'Enter') addOffline(); };
 
-// ---------- skin ----------
-let pickedSkin = null;
-
-/** Rysuje postać od przodu z pliku skina (64×64 lub stary 64×32). */
-function drawSkin(canvas, dataUrl, slim) {
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!dataUrl) return;
-  const img = new Image();
-  img.onload = () => {
-    const legacy = img.height === 32;
-    const aw = slim ? 3 : 4;
-    const part = (sx, sy, w, h, dx, dy, mirror = false) => {
-      if (!mirror) return ctx.drawImage(img, sx, sy, w, h, dx, dy, w, h);
-      ctx.save();
-      ctx.scale(-1, 1);
-      ctx.drawImage(img, sx, sy, w, h, -dx - w, dy, w, h);
-      ctx.restore();
-    };
-    ctx.clearRect(0, 0, 16, 32);
-    // warstwa podstawowa
-    part(8, 8, 8, 8, 4, 0);                       // głowa
-    part(20, 20, 8, 12, 4, 8);                    // tułów
-    part(44, 20, aw, 12, 4 - aw, 8);              // prawa ręka
-    if (legacy) part(44, 20, aw, 12, 12, 8, true); else part(36, 52, aw, 12, 12, 8); // lewa ręka
-    part(4, 20, 4, 12, 4, 20);                    // prawa noga
-    if (legacy) part(4, 20, 4, 12, 8, 20, true); else part(20, 52, 4, 12, 8, 20);    // lewa noga
-    // druga warstwa (czapka, kurtka, rękawy, spodnie)
-    part(40, 8, 8, 8, 4, 0);
-    if (!legacy) {
-      part(20, 36, 8, 12, 4, 8);
-      part(44, 36, aw, 12, 4 - aw, 8);
-      part(52, 52, aw, 12, 12, 8);
-      part(4, 36, 4, 12, 4, 20);
-      part(4, 52, 4, 12, 8, 20);
-    }
-  };
-  img.src = dataUrl;
-}
+// ---------- skin i peleryna ----------
+let skinData = null;   // stan z serwera
+let pickedSkin = null; // nowy plik (jeszcze niezapisany)
+let pickedCape;        // undefined = bez zmian, null = bez peleryny, id = peleryna
+let preview = null;
 
 const variant = () => document.querySelector('input[name=variant]:checked').value;
 function setVariant(v) { document.querySelector(`input[name=variant][value=${v}]`).checked = true; }
+const currentCapeId = () => { const c = skinData && skinData.capes.find((x) => x.active); return c ? c.id : null; };
+const effectiveCapeId = () => (pickedCape === undefined ? currentCapeId() : pickedCape);
+
+function hasChanges() {
+  if (!skinData) return false;
+  return !!pickedSkin || variant() !== skinData.variant || effectiveCapeId() !== currentCapeId();
+}
+
+function refreshPreview() {
+  if (!preview || !skinData) return;
+  const capeId = effectiveCapeId();
+  const cape = capeId && skinData.capes.find((c) => c.id === capeId);
+  preview.show(pickedSkin ? pickedSkin.dataUrl : skinData.dataUrl, variant() === 'slim', cape ? cape.dataUrl : null);
+  $('btn-skin-save').disabled = !hasChanges();
+  for (const t of document.querySelectorAll('.cape')) t.classList.toggle('selected', (t.dataset.id || null) === (capeId || null));
+}
+
+function renderCapes() {
+  const box = $('capes');
+  box.replaceChildren();
+  if (!skinData.capes.length) {
+    box.append(el('p', { className: 'hint', textContent: 'To konto nie ma żadnej oficjalnej peleryny.' }));
+    return;
+  }
+  const tile = (id, label, dataUrl) => {
+    const t = el('div', { className: 'cape', title: label });
+    if (id) t.dataset.id = id;
+    if ((id || null) === currentCapeId()) t.classList.add('current');
+    if (dataUrl) { const c = el('canvas', { width: 10, height: 16 }); drawCapeThumb(c, dataUrl); t.append(c); }
+    else t.append(el('div', { className: 'none', textContent: '✕' }));
+    t.append(label);
+    t.onclick = () => { pickedCape = id || null; refreshPreview(); };
+    return t;
+  };
+  box.append(tile(null, 'Bez peleryny'));
+  for (const c of skinData.capes) box.append(tile(c.id, c.name, c.dataUrl));
+}
 
 async function openSkin() {
   pickedSkin = null;
+  pickedCape = undefined;
+  skinData = null;
   $('skin-error').textContent = '';
-  $('skin-status').textContent = 'Wczytywanie obecnego skina…';
-  $('btn-skin-set').disabled = true;
-  $('skin-new-caption').textContent = 'Nowy (wybierz plik)';
-  drawSkin($('skin-new'), null);
-  drawSkin($('skin-current'), null);
+  $('skin-file').textContent = '';
+  $('skin-status').textContent = 'Wczytywanie…';
+  $('btn-skin-save').disabled = true;
+  $('capes').replaceChildren();
   $('skin-name').textContent = accountsState.active ? accountsState.active.name : '';
   $('skin-dialog').classList.remove('hidden');
+  if (!preview) {
+    preview = new SkinPreview($('skin-viewer'));
+    if (!preview.is3d) $('viewer-hint').textContent = 'Podgląd 2D (3D niedostępne)';
+  }
   try {
-    const s = await L.getSkin();
-    $('skin-name').textContent = s.name;
-    setVariant(s.variant);
-    drawSkin($('skin-current'), s.dataUrl, s.variant === 'slim');
+    skinData = await L.getSkin();
+    $('skin-name').textContent = skinData.name;
+    setVariant(skinData.variant);
+    renderCapes();
+    refreshPreview();
     $('skin-status').textContent = '';
   } catch (e) {
     $('skin-status').textContent = '';
@@ -225,40 +233,53 @@ $('btn-skin-pick').onclick = async () => {
     const f = await L.pickSkin();
     if (!f) return;
     pickedSkin = f;
-    drawSkin($('skin-new'), f.dataUrl, variant() === 'slim');
-    $('skin-new-caption').textContent = `Nowy (${f.width}×${f.height})`;
-    $('btn-skin-set').disabled = false;
+    $('skin-file').textContent = `nowy plik (${f.width}×${f.height}) – niezapisany`;
+    refreshPreview();
   } catch (e) { $('skin-error').textContent = cleanErr(e); }
 };
-for (const r of document.querySelectorAll('input[name=variant]')) {
-  r.onchange = () => { if (pickedSkin) drawSkin($('skin-new'), pickedSkin.dataUrl, variant() === 'slim'); };
-}
-$('btn-skin-set').onclick = async () => {
+for (const r of document.querySelectorAll('input[name=variant]')) r.onchange = refreshPreview;
+
+$('btn-skin-save').onclick = async () => {
   $('skin-error').textContent = '';
-  $('btn-skin-set').disabled = true;
-  $('skin-status').textContent = 'Wysyłanie skina…';
+  $('btn-skin-save').disabled = true;
+  // zapamiętaj, co zmienić, zanim odświeżymy stan z serwera
+  const capeChanged = pickedCape !== undefined && pickedCape !== currentCapeId();
+  const wantCape = pickedCape;
   try {
-    const s = await L.setSkin(pickedSkin.path, variant());
-    drawSkin($('skin-current'), s.dataUrl, s.variant === 'slim');
-    $('skin-status').textContent = '✔ Skin zmieniony! Wejdź ponownie na serwer, żeby go zobaczyć.';
+    if (pickedSkin || variant() !== skinData.variant) {
+      $('skin-status').textContent = 'Zapisywanie skina…';
+      // zmiana samego modelu wymaga ponownego wysłania obecnego skina
+      skinData = pickedSkin ? await L.setSkin(pickedSkin.path, variant()) : await L.setSkin(null, variant());
+    }
+    if (capeChanged) {
+      $('skin-status').textContent = 'Zapisywanie peleryny…';
+      skinData = await L.setCape(wantCape);
+    }
     pickedSkin = null;
-    drawSkin($('skin-new'), null);
-    $('skin-new-caption').textContent = 'Nowy (wybierz plik)';
-    renderAccounts(await L.getAccounts()); // odświeża główkę
+    pickedCape = undefined;
+    $('skin-file').textContent = '';
+    setVariant(skinData.variant);
+    renderCapes();
+    refreshPreview();
+    $('skin-status').textContent = '✔ Zapisano! Wejdź ponownie na serwer, żeby zobaczyć zmiany w grze.';
   } catch (e) {
     $('skin-status').textContent = '';
     $('skin-error').textContent = cleanErr(e);
-    $('btn-skin-set').disabled = false;
+    $('btn-skin-save').disabled = !hasChanges();
   }
 };
-$('btn-skin-reset').onclick = async () => {
+$('btn-skin-reset').onclick = async (e) => {
+  e.preventDefault();
   if (!confirm('Przywrócić domyślnego skina (Steve/Alex)?')) return;
   $('skin-error').textContent = '';
   try {
-    const s = await L.resetSkin();
-    drawSkin($('skin-current'), s.dataUrl, s.variant === 'slim');
+    skinData = await L.resetSkin();
+    pickedSkin = null;
+    $('skin-file').textContent = '';
+    setVariant(skinData.variant);
+    refreshPreview();
     $('skin-status').textContent = '✔ Przywrócono domyślnego skina.';
-  } catch (e) { $('skin-error').textContent = cleanErr(e); }
+  } catch (err) { $('skin-error').textContent = cleanErr(err); }
 };
 
 // ---------- granie ----------
@@ -439,6 +460,25 @@ $('btn-settings-save').onclick = async () => {
   }
 };
 
+// ---------- co nowego / lista zmian ----------
+function showChanges(title, entries) {
+  if (!entries || !entries.length) return;
+  $('changes-title').textContent = title;
+  const box = $('changes-list');
+  box.replaceChildren();
+  for (const e of entries) {
+    const h = el('h4', { className: 'change-ver', textContent: `Wersja ${e.version}` });
+    if (e.date) h.append(el('span', { className: 'date', textContent: e.date }));
+    box.append(h, el('ul', {}, ...e.items.map((i) => el('li', { textContent: i }))));
+  }
+  $('changes').classList.remove('hidden');
+}
+$('btn-changes-close').onclick = () => $('changes').classList.add('hidden');
+$('btn-changelog').onclick = async (e) => {
+  e.preventDefault();
+  showChanges('Lista zmian', await L.getChangelog());
+};
+
 // ---------- start ----------
 async function init() {
   const a = await L.getApp();
@@ -448,6 +488,7 @@ async function init() {
   if (a.portable) $('version-info').dataset.portable = '1';
   renderVersionInfo();
   showInfo(a.info);
+  if (a.whatsNew && a.whatsNew.length) showChanges(`Co nowego w wersji ${a.version}`, a.whatsNew);
   renderAccounts(await L.getAccounts());
   showUpdate(await L.getUpdate());
   showInfo(await L.refreshInfo()); // świeże newsy/adres z sieci

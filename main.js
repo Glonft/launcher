@@ -13,6 +13,8 @@ const { SettingsStore, isEmptyDir, isInside } = require('./src/settings');
 const { pingServer } = require('./src/ping');
 const { PortableUpdater, isPortable } = require('./src/portable-updater');
 const skin = require('./src/skin');
+const { readChangelog, entriesBetween } = require('./src/changelog');
+const { newer } = require('./src/portable-updater');
 
 let win;
 let accounts;
@@ -261,7 +263,21 @@ app.whenReady().then(() => {
     addons: {},
   });
 
-  ipcMain.handle('app:get', () => ({ appName: config.appName, version: app.getVersion(), portable: isPortable(), info: publicInfo(cachedManifest()) }));
+  const changelog = () => readChangelog(path.join(__dirname, 'CHANGELOG.md'));
+  ipcMain.handle('app:get', () => {
+    // „Co nowego”: pokaż zmiany od ostatnio widzianej wersji (raz po aktualizacji)
+    const cur = app.getVersion();
+    const seen = settings.get().lastSeenVersion;
+    let whatsNew = [];
+    if (seen) {
+      if (newer(cur, seen)) whatsNew = entriesBetween(changelog(), seen, cur);
+    } else if (accounts.state().list.length) {
+      whatsNew = changelog().filter((e) => e.version === cur); // aktualizacja ze starszej wersji
+    }
+    if (seen !== cur) { try { settings.set({ lastSeenVersion: cur }); } catch { /* ignoruj */ } }
+    return { appName: config.appName, version: cur, portable: isPortable(), info: publicInfo(cachedManifest()), whatsNew };
+  });
+  ipcMain.handle('changelog:get', () => changelog());
   ipcMain.handle('info:refresh', async () => {
     try { return publicInfo(await fetchManifest(gameDir(), true)); } catch { return publicInfo(cachedManifest()); }
   });
@@ -280,10 +296,16 @@ app.whenReady().then(() => {
   const skinState = async () => {
     const token = await accounts.getMinecraftToken();
     const p = await skin.getProfile(token);
+    const capes = [];
+    for (const c of p.capes) {
+      try { capes.push({ id: c.id, name: c.name, active: c.active, dataUrl: await skin.toDataUrl(c.url) }); }
+      catch { /* pojedyncza peleryna się nie wczytała – pomijamy */ }
+    }
     return {
       name: p.name,
       variant: p.skin ? p.skin.variant : 'classic',
       dataUrl: p.skin ? await skin.toDataUrl(p.skin.url) : null,
+      capes,
     };
   };
   ipcMain.handle('skin:get', () => skinState());
@@ -299,9 +321,25 @@ app.whenReady().then(() => {
     return { path: r.filePaths[0], ...size, dataUrl: `data:image/png;base64,${buf.toString('base64')}` };
   });
   ipcMain.handle('skin:set', async (_e, file, variant) => {
-    const buf = fs.readFileSync(file);
-    await skin.uploadSkin(await accounts.getMinecraftToken(), buf, variant);
+    const token = await accounts.getMinecraftToken();
+    let buf;
+    if (file) {
+      buf = fs.readFileSync(file);
+    } else {
+      // tylko zmiana modelu – wysyłamy ponownie obecny skin
+      const p = await skin.getProfile(token);
+      if (!p.skin) throw new Error('Najpierw wybierz plik skina.');
+      const res = await fetch(p.skin.url);
+      if (!res.ok) throw new Error(`Nie udało się pobrać obecnego skina (HTTP ${res.status})`);
+      buf = Buffer.from(await res.arrayBuffer());
+    }
+    await skin.uploadSkin(token, buf, variant);
     log(`Ustawiono nowego skina (${variant === 'slim' ? 'model smukły' : 'model klasyczny'}).`);
+    return skinState();
+  });
+  ipcMain.handle('skin:setCape', async (_e, capeId) => {
+    await skin.setCape(await accounts.getMinecraftToken(), capeId || null);
+    log(capeId ? 'Założono pelerynę.' : 'Schowano pelerynę.');
     return skinState();
   });
   ipcMain.handle('skin:reset', async () => {

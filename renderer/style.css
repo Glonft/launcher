@@ -103,11 +103,25 @@ summary { cursor: pointer; color: #8b8f9a; margin-bottom: 8px; }
 
 /* skin */
 .skin-btn { width: 100%; margin-top: 10px; }
-.skin-panel { width: 520px; }
-.skin-previews { display: flex; align-items: center; justify-content: center; gap: 28px; margin: 6px 0 14px; }
-.skin-previews figure { margin: 0; text-align: center; }
-.skin-previews canvas { width: 96px; height: 192px; image-rendering: pixelated; background: #0e1014; border-radius: 10px; padding: 10px; box-sizing: content-box; }
-.skin-previews figcaption { font-size: 12px; color: #8b8f9a; margin-top: 6px; }
-.skin-previews .arrow { font-size: 26px; color: #8b8f9a; }
-.row.center { justify-content: center; align-items: center; gap: 14px; }
-.link-btn { background: transparent; color: #ff9a7a; margin-right: auto; }
+.skin-panel { width: 720px; }
+.skin-layout { display: flex; gap: 22px; }
+.viewer-col { flex: none; }
+.skin-viewer { width: 240px; height: 320px; background: radial-gradient(circle at 50% 35%, #2a3a4a, #0e1014 75%); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: grab; }
+.skin-viewer canvas.preview-2d { width: 120px; height: 240px; image-rendering: pixelated; cursor: default; }
+.center-text { text-align: center; }
+.skin-controls { flex: 1; min-width: 0; }
+.skin-controls h3:first-child { margin-top: 0; }
+.skin-controls .row { align-items: center; margin-bottom: 8px; gap: 12px; }
+.danger-link { color: #ff9a7a; }
+.capes { display: flex; flex-wrap: wrap; gap: 8px; }
+.cape { width: 64px; padding: 6px 4px; border-radius: 8px; border: 2px solid #2c303a; background: #0e1014; cursor: pointer; text-align: center; font-size: 11px; color: #c9ccd4; }
+.cape canvas { width: 30px; height: 48px; image-rendering: pixelated; display: block; margin: 0 auto 4px; }
+.cape .none { width: 30px; height: 48px; margin: 0 auto 4px; border: 1px dashed #4a4f5a; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #6b6f7a; }
+.cape.selected { border-color: #3fa34d; }
+.cape.current::after { content: 'obecna'; display: block; font-size: 10px; color: #8b8f9a; }
+
+/* lista zmian */
+.changes-panel { width: 520px; }
+.change-ver { margin: 14px 0 4px; font-size: 15px; }
+.change-ver .date { color: #8b8f9a; font-weight: normal; font-size: 12px; margin-left: 6px; }
+.changes-panel ul { margin: 0; padding-left: 20px; line-height: 1.55; color: #c9ccd4; }

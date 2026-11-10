@@ -53,7 +53,7 @@
           </div>
           <select id="account-select" title="Zmień konto"></select>
         </div>
-        <button id="btn-skin" class="ghost skin-btn hidden">🎨 Zmień skina</button>
+        <button id="btn-skin" class="ghost skin-btn hidden">🎨 Skin i peleryna</button>
       </div>
 
       <button id="btn-play" class="play" disabled>GRAJ</button>
@@ -84,33 +84,49 @@
     </div>
   </div>
 
-  <!-- Skin -->
+  <!-- Skin i peleryna -->
   <div id="skin-dialog" class="overlay hidden">
     <div class="panel skin-panel">
-      <h2>Skin – <span id="skin-name"></span></h2>
-      <div class="skin-previews">
-        <figure>
-          <canvas id="skin-current" width="16" height="32"></canvas>
-          <figcaption>Obecny</figcaption>
-        </figure>
-        <div class="arrow">→</div>
-        <figure>
-          <canvas id="skin-new" width="16" height="32"></canvas>
-          <figcaption id="skin-new-caption">Nowy (wybierz plik)</figcaption>
-        </figure>
+      <h2>Wygląd – <span id="skin-name"></span></h2>
+      <div class="skin-layout">
+        <div class="viewer-col">
+          <div id="skin-viewer" class="skin-viewer"></div>
+          <div id="viewer-hint" class="hint center-text">Przeciągnij myszką, żeby obrócić</div>
+        </div>
+        <div class="skin-controls">
+          <h3>Skin</h3>
+          <div class="row">
+            <button id="btn-skin-pick">Wybierz plik PNG…</button>
+            <span id="skin-file" class="muted small"></span>
+          </div>
+          <div class="row">
+            <label class="check"><input type="radio" name="variant" value="classic" checked> Klasyczny (Steve)</label>
+            <label class="check"><input type="radio" name="variant" value="slim"> Smukły (Alex)</label>
+          </div>
+          <a href="#" id="btn-skin-reset" class="small danger-link">Przywróć domyślnego skina</a>
+
+          <h3>Peleryna</h3>
+          <div id="capes" class="capes"></div>
+
+          <p class="hint">Zmiany dotyczą całego Twojego konta Minecraft (tak jak w oficjalnym launcherze). Na serwerze zobaczysz je po ponownym wejściu.</p>
+        </div>
       </div>
-      <div class="row center">
-        <button id="btn-skin-pick">Wybierz plik PNG…</button>
-        <label class="check"><input type="radio" name="variant" value="classic" checked> Klasyczny (Steve)</label>
-        <label class="check"><input type="radio" name="variant" value="slim"> Smukły (Alex)</label>
-      </div>
-      <p class="hint">Skin zmienia się na całym Twoim koncie Minecraft (tak jak w oficjalnym launcherze). Na serwerze zobaczysz go po ponownym wejściu.</p>
       <p id="skin-status" class="hint"></p>
       <p id="skin-error" class="error"></p>
       <div class="row end sticky-actions">
-        <button id="btn-skin-reset" class="link-btn">Przywróć domyślny</button>
         <button id="btn-skin-close">Zamknij</button>
-        <button id="btn-skin-set" class="primary-sm" disabled>Ustaw skina</button>
+        <button id="btn-skin-save" class="primary-sm" disabled>Zapisz zmiany</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Co nowego / lista zmian -->
+  <div id="changes" class="overlay hidden">
+    <div class="panel changes-panel">
+      <h2 id="changes-title">Co nowego</h2>
+      <div id="changes-list"></div>
+      <div class="row end sticky-actions">
+        <button id="btn-changes-close" class="primary-sm">OK</button>
       </div>
     </div>
   </div>
@@ -177,6 +193,7 @@
       </div>
       <p class="hint">Naprawa pobiera od nowa Javę, NeoForge i biblioteki oraz sprawdza wszystkie mody. Światy i ustawienia zostają.</p>
       <p class="hint" id="version-info"></p>
+      <a href="#" id="btn-changelog" class="small">Pełna lista zmian</a>
 
       <details>
         <summary>Zaawansowane</summary>
@@ -194,6 +211,8 @@
     </div>
   </div>
 
+  <script src="vendor/skinview3d.js"></script>
+  <script src="skin-preview.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

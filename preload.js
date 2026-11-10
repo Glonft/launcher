@@ -4,6 +4,7 @@ const invoke = (ch, ...a) => ipcRenderer.invoke(ch, ...a);
 
 contextBridge.exposeInMainWorld('launcher', {
   getApp: () => invoke('app:get'),
+  getChangelog: () => invoke('changelog:get'),
   refreshInfo: () => invoke('info:refresh'),
   pingServer: () => invoke('server:ping'),
 
@@ -17,6 +18,7 @@ contextBridge.exposeInMainWorld('launcher', {
   pickSkin: () => invoke('skin:pick'),
   setSkin: (file, variant) => invoke('skin:set', file, variant),
   resetSkin: () => invoke('skin:reset'),
+  setCape: (capeId) => invoke('skin:setCape', capeId),
 
   play: () => invoke('game:play'),
   repair: () => invoke('game:repair'),
