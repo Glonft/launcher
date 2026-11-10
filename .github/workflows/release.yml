@@ -1,29 +1,54 @@
 # Nowa wersja launchera: zmień "version" w package.json i zrób push na main.
 # GitHub zbuduje instalator Windows (.exe) i Linux (.AppImage), utworzy tag
 # v<wersja> i wydanie w Releases. Zainstalowane launchery same się zaktualizują.
-# Można też uruchomić ręcznie: Actions → Release launcher → Run workflow.
+#
+# Zabezpieczenie: jeśli wydanie v<wersja> już istnieje, nic nie jest budowane
+# (np. przy poprawkach historii, README albo ręcznym uruchomieniu bez zmiany wersji).
 name: Release launcher
 
 on:
   push:
     branches: [main]
-    paths: ['package.json', '.github/workflows/release.yml']
+    paths: ['package.json']
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      exists: ${{ steps.v.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: v
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Wydanie v$VERSION już istnieje – pomijam budowanie. Podbij wersję w package.json, żeby wydać nową."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Buduję nową wersję v$VERSION"
+          fi
+
   build:
+    needs: check
+    if: needs.check.outputs.exists != 'true'
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
       - run: npm install
       - run: npm run release
         env:
