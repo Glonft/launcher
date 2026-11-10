@@ -319,8 +319,7 @@ app.whenReady().then(() => {
       variant: p.skin ? p.skin.variant : 'classic',
       dataUrl: p.skin ? await skin.toDataUrl(p.skin.url) : null,
       capes,
-      // SkinRestorer na serwerze offline: odśwież skina premium po zmianie
-      command: `/skin set mojang ${p.name}`,
+      command: null,
     };
   };
   ipcMain.handle('skin:get', () => skinState());
@@ -370,9 +369,7 @@ app.whenReady().then(() => {
     }
     await skin.uploadSkin(token, buf, variant);
     log(`Ustawiono nowego skina (${variant === 'slim' ? 'model smukły' : 'model klasyczny'}).`);
-    const st = await skinState();
-    clipboard.writeText(st.command);
-    return st;
+    return skinState();
   });
   ipcMain.handle('skin:copyCommand', async () => {
     const st = await skinState();

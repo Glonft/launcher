@@ -10,7 +10,6 @@ Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 
 ## 0.6.0
 - Skiny dla kont non-premium: wybierz plik w oknie „Skin i peleryna”, a launcher przygotuje gotową komendę do wklejenia w grze – skina zobaczą wszyscy na serwerze
-- Gracze premium: po zmianie skina launcher kopiuje komendę odświeżającą skina na serwerze
 
 ## 0.5.0
 - Nowe okno „Wygląd”: podgląd postaci w 3D, który można obracać myszką

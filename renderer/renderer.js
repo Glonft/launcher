@@ -158,12 +158,8 @@ function showCommand(cmd, justSaved) {
   $('skin-cmd-text').textContent = cmd;
   const info = $('skin-cmd-info');
   info.replaceChildren();
-  if (skinData && skinData.offline) {
-    info.append(justSaved ? '✔ Skin gotowy, komenda jest już w schowku. W grze na serwerze:' : 'Ostatnia komenda skina. Żeby ustawić go na serwerze:');
-    info.append(el('ol', {}, el('li', { textContent: 'naciśnij T (czat)' }), el('li', { textContent: 'Ctrl+V' }), el('li', { textContent: 'Enter' })));
-  } else {
-    info.append('Jeśli na serwerze inni nie widzą Twojego nowego skina, wklej w grze tę komendę (T → Ctrl+V → Enter):');
-  }
+  info.append(justSaved ? '✔ Skin gotowy, komenda jest już w schowku. W grze na serwerze:' : 'Ostatnia komenda skina. Żeby ustawić go na serwerze:');
+  info.append(el('ol', {}, el('li', { textContent: 'naciśnij T (czat)' }), el('li', { textContent: 'Ctrl+V' }), el('li', { textContent: 'Enter' })));
 }
 
 let skinData = null;   // stan z serwera
@@ -291,7 +287,7 @@ $('btn-skin-save').onclick = async () => {
       showCommand(skinData.command, true);
     } else {
       $('skin-status').textContent = '✔ Zapisano! Wejdź ponownie na serwer, żeby zobaczyć zmiany w grze.';
-      showCommand(skinData.command);
+      showCommand(null);
     }
   } catch (e) {
     $('skin-status').textContent = '';
