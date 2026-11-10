@@ -53,7 +53,7 @@
           </div>
           <select id="account-select" title="Zmień konto"></select>
         </div>
-        <button id="btn-skin" class="ghost skin-btn hidden">🎨 Skin i peleryna</button>
+        <button id="btn-skin" class="ghost skin-btn">🎨 Skin i peleryna</button>
       </div>
 
       <button id="btn-play" class="play" disabled>GRAJ</button>
@@ -105,10 +105,18 @@
           </div>
           <a href="#" id="btn-skin-reset" class="small danger-link">Przywróć domyślnego skina</a>
 
-          <h3>Peleryna</h3>
-          <div id="capes" class="capes"></div>
+          <div id="capes-section">
+            <h3>Peleryna</h3>
+            <div id="capes" class="capes"></div>
+          </div>
 
-          <p class="hint">Zmiany dotyczą całego Twojego konta Minecraft (tak jak w oficjalnym launcherze). Na serwerze zobaczysz je po ponownym wejściu.</p>
+          <p id="skin-hint" class="hint"></p>
+
+          <div id="skin-cmd" class="cmd-box hidden">
+            <div id="skin-cmd-info" class="small"></div>
+            <code id="skin-cmd-text"></code>
+            <button id="btn-skin-copy" class="small-btn">📋 Kopiuj komendę</button>
+          </div>
         </div>
       </div>
       <p id="skin-status" class="hint"></p>

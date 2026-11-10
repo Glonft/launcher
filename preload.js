@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('launcher', {
   setSkin: (file, variant) => invoke('skin:set', file, variant),
   resetSkin: () => invoke('skin:reset'),
   setCape: (capeId) => invoke('skin:setCape', capeId),
+  copySkinCommand: () => invoke('skin:copyCommand'),
 
   play: () => invoke('game:play'),
   repair: () => invoke('game:repair'),

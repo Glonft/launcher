@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Client } = require('minecraft-launcher-core');
@@ -11,6 +11,7 @@ const { ensureJava } = require('./src/java');
 const { ensureNeoForge, getNeoForgeJvmArgs } = require('./src/neoforge');
 const { SettingsStore, isEmptyDir, isInside } = require('./src/settings');
 const { pingServer } = require('./src/ping');
+const mineskin = require('./src/mineskin');
 const { PortableUpdater, isPortable } = require('./src/portable-updater');
 const skin = require('./src/skin');
 const { readChangelog, entriesBetween } = require('./src/changelog');
@@ -292,8 +293,19 @@ app.whenReady().then(() => {
   ipcMain.handle('accounts:select', (_e, id) => accounts.select(id));
   ipcMain.handle('accounts:remove', (_e, id) => accounts.remove(id));
 
-  // ---- skin (konta Microsoft) ----
+  // ---- skin i peleryna ----
+  // Premium: oficjalne API Minecrafta. Non-premium: MineSkin + komenda SkinRestorera do schowka.
+  const activeAcc = () => accounts.state().active;
+  const offlineSkinFile = (acc) => path.join(app.getPath('userData'), 'skins', `${acc.id.replace(/[^a-z0-9_-]/gi, '_')}.json`);
+  const readOfflineSkin = (acc) => { try { return JSON.parse(fs.readFileSync(offlineSkinFile(acc), 'utf8')); } catch { return {}; } };
+
   const skinState = async () => {
+    const acc = activeAcc();
+    if (!acc) throw new Error('Najpierw dodaj konto.');
+    if (acc.type !== 'microsoft') {
+      const o = readOfflineSkin(acc);
+      return { name: acc.name, offline: true, variant: o.variant || 'classic', dataUrl: o.dataUrl || null, capes: [], command: o.command || null };
+    }
     const token = await accounts.getMinecraftToken();
     const p = await skin.getProfile(token);
     const capes = [];
@@ -303,9 +315,12 @@ app.whenReady().then(() => {
     }
     return {
       name: p.name,
+      offline: false,
       variant: p.skin ? p.skin.variant : 'classic',
       dataUrl: p.skin ? await skin.toDataUrl(p.skin.url) : null,
       capes,
+      // SkinRestorer na serwerze offline: odśwież skina premium po zmianie
+      command: `/skin set mojang ${p.name}`,
     };
   };
   ipcMain.handle('skin:get', () => skinState());
@@ -321,6 +336,26 @@ app.whenReady().then(() => {
     return { path: r.filePaths[0], ...size, dataUrl: `data:image/png;base64,${buf.toString('base64')}` };
   });
   ipcMain.handle('skin:set', async (_e, file, variant) => {
+    const acc = activeAcc();
+    if (!acc) throw new Error('Najpierw dodaj konto.');
+
+    if (acc.type !== 'microsoft') {
+      const prev = readOfflineSkin(acc);
+      let buf;
+      if (file) buf = fs.readFileSync(file);
+      else if (prev.dataUrl) buf = Buffer.from(prev.dataUrl.split(',')[1], 'base64'); // tylko zmiana modelu
+      else throw new Error('Najpierw wybierz plik skina.');
+      skin.validateSkin(buf);
+      const url = await mineskin.generateSkin(mineskin.mineskinKey(__dirname), buf, variant, `MelinaSMP ${acc.name}`);
+      const command = mineskin.skinCommand(variant, url);
+      const saved = { variant, url, command, dataUrl: `data:image/png;base64,${buf.toString('base64')}`, at: new Date().toISOString() };
+      fs.mkdirSync(path.dirname(offlineSkinFile(acc)), { recursive: true });
+      fs.writeFileSync(offlineSkinFile(acc), JSON.stringify(saved));
+      clipboard.writeText(command);
+      log(`Skin gotowy – komenda skopiowana do schowka: ${command}`);
+      return skinState();
+    }
+
     const token = await accounts.getMinecraftToken();
     let buf;
     if (file) {
@@ -335,7 +370,15 @@ app.whenReady().then(() => {
     }
     await skin.uploadSkin(token, buf, variant);
     log(`Ustawiono nowego skina (${variant === 'slim' ? 'model smukły' : 'model klasyczny'}).`);
-    return skinState();
+    const st = await skinState();
+    clipboard.writeText(st.command);
+    return st;
+  });
+  ipcMain.handle('skin:copyCommand', async () => {
+    const st = await skinState();
+    if (!st.command) throw new Error('Najpierw ustaw skina.');
+    clipboard.writeText(st.command);
+    return st.command;
   });
   ipcMain.handle('skin:setCape', async (_e, capeId) => {
     await skin.setCape(await accounts.getMinecraftToken(), capeId || null);
@@ -343,6 +386,13 @@ app.whenReady().then(() => {
     return skinState();
   });
   ipcMain.handle('skin:reset', async () => {
+    const acc = activeAcc();
+    if (acc && acc.type !== 'microsoft') {
+      fs.rmSync(offlineSkinFile(acc), { force: true });
+      clipboard.writeText('/skin clear');
+      log('Przywracanie domyślnego skina – komenda /skin clear skopiowana do schowka.');
+      return { ...(await skinState()), command: '/skin clear' };
+    }
     await skin.resetSkin(await accounts.getMinecraftToken());
     log('Przywrócono domyślnego skina.');
     return skinState();

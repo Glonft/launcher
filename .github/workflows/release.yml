@@ -51,6 +51,13 @@ jobs:
           node-version: 22
       - name: Opis wydania z CHANGELOG.md
         run: node scripts/release-notes.js
+      - name: Klucz MineSkin (z ukrytego sekretu repo)
+        shell: bash
+        env:
+          MINESKIN_KEY: ${{ secrets.MINESKIN_KEY }}
+        run: |
+          if [ -z "$MINESKIN_KEY" ]; then echo "::error::Brak sekretu MINESKIN_KEY (Settings → Secrets and variables → Actions)"; exit 1; fi
+          node -e "require('fs').writeFileSync('secrets.json', JSON.stringify({ mineskinKey: process.env.MINESKIN_KEY }))"
       - run: npm install
       - name: Sprawdź podgląd 3D skina
         shell: bash

@@ -96,7 +96,6 @@ function renderAccounts(state) {
   if (!a) return;
 
   $('player').textContent = a.name;
-  $('btn-skin').classList.toggle('hidden', a.type !== 'microsoft');
   $('acc-type').textContent = a.type === 'microsoft' ? 'Konto Microsoft (premium)' : 'Konto non-premium';
   const av = $('avatar');
   av.textContent = '';
@@ -152,6 +151,21 @@ $('btn-offline').onclick = addOffline;
 $('nick').onkeydown = (e) => { if (e.key === 'Enter') addOffline(); };
 
 // ---------- skin i peleryna ----------
+function showCommand(cmd, justSaved) {
+  const box = $('skin-cmd');
+  if (!cmd) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  $('skin-cmd-text').textContent = cmd;
+  const info = $('skin-cmd-info');
+  info.replaceChildren();
+  if (skinData && skinData.offline) {
+    info.append(justSaved ? '✔ Skin gotowy, komenda jest już w schowku. W grze na serwerze:' : 'Ostatnia komenda skina. Żeby ustawić go na serwerze:');
+    info.append(el('ol', {}, el('li', { textContent: 'naciśnij T (czat)' }), el('li', { textContent: 'Ctrl+V' }), el('li', { textContent: 'Enter' })));
+  } else {
+    info.append('Jeśli na serwerze inni nie widzą Twojego nowego skina, wklej w grze tę komendę (T → Ctrl+V → Enter):');
+  }
+}
+
 let skinData = null;   // stan z serwera
 let pickedSkin = null; // nowy plik (jeszcze niezapisany)
 let pickedCape;        // undefined = bez zmian, null = bez peleryny, id = peleryna
@@ -179,6 +193,8 @@ function refreshPreview() {
 function renderCapes() {
   const box = $('capes');
   box.replaceChildren();
+  $('capes-section').classList.toggle('hidden', !!skinData.offline);
+  if (skinData.offline) return;
   if (!skinData.capes.length) {
     box.append(el('p', { className: 'hint', textContent: 'To konto nie ma żadnej oficjalnej peleryny.' }));
     return;
@@ -218,12 +234,21 @@ async function openSkin() {
     setVariant(skinData.variant);
     renderCapes();
     refreshPreview();
+    $('skin-hint').textContent = skinData.offline
+      ? 'Konto non-premium: skin zobaczą wszyscy na serwerze MelinaSMP. Po kliknięciu „Zapisz zmiany” wkleisz w grze jedną komendę. Peleryny są dostępne tylko dla kont premium.'
+      : 'Zmiany dotyczą całego Twojego konta Minecraft (tak jak w oficjalnym launcherze). Na serwerze zobaczysz je po ponownym wejściu.';
+    $('btn-skin-reset').textContent = skinData.offline ? 'Przywróć domyślnego skina (komenda)' : 'Przywróć domyślnego skina';
+    showCommand(skinData.offline ? skinData.command : null);
     $('skin-status').textContent = '';
   } catch (e) {
     $('skin-status').textContent = '';
     $('skin-error').textContent = cleanErr(e);
   }
 }
+$('btn-skin-copy').onclick = async () => {
+  try { await L.copySkinCommand(); $('btn-skin-copy').textContent = '✔ Skopiowano'; setTimeout(() => { $('btn-skin-copy').textContent = '📋 Kopiuj komendę'; }, 1500); }
+  catch (e) { $('skin-error').textContent = cleanErr(e); }
+};
 
 $('btn-skin').onclick = openSkin;
 $('btn-skin-close').onclick = () => $('skin-dialog').classList.add('hidden');
@@ -247,7 +272,7 @@ $('btn-skin-save').onclick = async () => {
   const wantCape = pickedCape;
   try {
     if (pickedSkin || variant() !== skinData.variant) {
-      $('skin-status').textContent = 'Zapisywanie skina…';
+      $('skin-status').textContent = skinData.offline ? 'Przygotowywanie skina (MineSkin)… to może potrwać kilkanaście sekund' : 'Zapisywanie skina…';
       // zmiana samego modelu wymaga ponownego wysłania obecnego skina
       skinData = pickedSkin ? await L.setSkin(pickedSkin.path, variant()) : await L.setSkin(null, variant());
     }
@@ -261,7 +286,13 @@ $('btn-skin-save').onclick = async () => {
     setVariant(skinData.variant);
     renderCapes();
     refreshPreview();
-    $('skin-status').textContent = '✔ Zapisano! Wejdź ponownie na serwer, żeby zobaczyć zmiany w grze.';
+    if (skinData.offline) {
+      $('skin-status').textContent = '';
+      showCommand(skinData.command, true);
+    } else {
+      $('skin-status').textContent = '✔ Zapisano! Wejdź ponownie na serwer, żeby zobaczyć zmiany w grze.';
+      showCommand(skinData.command);
+    }
   } catch (e) {
     $('skin-status').textContent = '';
     $('skin-error').textContent = cleanErr(e);
@@ -273,12 +304,14 @@ $('btn-skin-reset').onclick = async (e) => {
   if (!confirm('Przywrócić domyślnego skina (Steve/Alex)?')) return;
   $('skin-error').textContent = '';
   try {
-    skinData = await L.resetSkin();
+    const r = await L.resetSkin();
+    skinData = r;
     pickedSkin = null;
     $('skin-file').textContent = '';
     setVariant(skinData.variant);
     refreshPreview();
-    $('skin-status').textContent = '✔ Przywrócono domyślnego skina.';
+    if (skinData.offline) { $('skin-status').textContent = ''; showCommand(r.command, true); }
+    else $('skin-status').textContent = '✔ Przywrócono domyślnego skina.';
   } catch (err) { $('skin-error').textContent = cleanErr(err); }
 };
 

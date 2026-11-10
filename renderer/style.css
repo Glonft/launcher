@@ -125,3 +125,7 @@ summary { cursor: pointer; color: #8b8f9a; margin-bottom: 8px; }
 .change-ver { margin: 14px 0 4px; font-size: 15px; }
 .change-ver .date { color: #8b8f9a; font-weight: normal; font-size: 12px; margin-left: 6px; }
 .changes-panel ul { margin: 0; padding-left: 20px; line-height: 1.55; color: #c9ccd4; }
+
+.cmd-box { margin-top: 10px; background: #0e1014; border: 1px solid #2f6fde55; border-radius: 8px; padding: 10px 12px; }
+.cmd-box code { display: block; margin: 6px 0 8px; font-size: 11px; color: #c9ccd4; word-break: break-all; user-select: all; }
+.cmd-box ol { margin: 4px 0 0; padding-left: 18px; }

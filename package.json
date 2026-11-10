@@ -31,7 +31,8 @@
       "config.json",
       "src/**",
       "renderer/**",
-      "CHANGELOG.md"
+      "CHANGELOG.md",
+      "secrets.json"
     ],
     "win": {
       "target": [

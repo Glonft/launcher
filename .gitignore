@@ -2,3 +2,4 @@ node_modules/
 dist/
 renderer/vendor/
 build/release-notes.md
+secrets.json
