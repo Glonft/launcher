@@ -29,6 +29,9 @@ Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 ## 0.3.0
 - Adres serwera i wersja Javy pobierane z paczki – zmiana IP serwera nie wymaga nowego launchera
 
+## 0.2.1
+- Uzupełnione informacje o programie w instalatorze (opis, prawa autorskie)
+
 ## 0.2.0
 - Okno ustawień: RAM, rozdzielczość i pełny ekran, zachowanie po starcie gry, folder instalacji z przenoszeniem plików, argumenty Javy
 
