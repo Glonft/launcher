@@ -11,6 +11,8 @@ const { ensureJava } = require('./src/java');
 const { ensureNeoForge, getNeoForgeJvmArgs } = require('./src/neoforge');
 const { SettingsStore, isEmptyDir, isInside } = require('./src/settings');
 const { pingServer } = require('./src/ping');
+const { PortableUpdater, isPortable } = require('./src/portable-updater');
+const skin = require('./src/skin');
 
 let win;
 let accounts;
@@ -18,6 +20,7 @@ let settings;
 let running = false;
 let busy = false; // przenoszenie plików / naprawa
 let updateState = { state: 'idle' };
+let portableUpdater = null;
 
 const gb = (s) => parseFloat(String(s)) || 0; // "6G" -> 6
 const gameDir = () => settings.get().gameDir;
@@ -215,6 +218,20 @@ function setUpdate(s) {
 
 function initUpdater() {
   if (!app.isPackaged) { updateState = { state: 'dev' }; return; }
+  if (isPortable()) {
+    // wersja portable: własny mechanizm (pobranie obok pliku + podmiana po restarcie)
+    const pkg = require('./package.json');
+    const pub = pkg.build.publish[0];
+    portableUpdater = new PortableUpdater({
+      owner: pub.owner, repo: pub.repo, currentVersion: app.getVersion(),
+      downloadsDir: app.getPath('downloads'), onState: setUpdate,
+    });
+    portableUpdater.check();
+    setInterval(() => {
+      if (!['ready', 'manual', 'downloading'].includes(updateState.state)) portableUpdater.check();
+    }, 60 * 60 * 1000);
+    return;
+  }
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.on('checking-for-update', () => setUpdate({ state: 'checking' }));
@@ -244,7 +261,7 @@ app.whenReady().then(() => {
     addons: {},
   });
 
-  ipcMain.handle('app:get', () => ({ appName: config.appName, version: app.getVersion(), info: publicInfo(cachedManifest()) }));
+  ipcMain.handle('app:get', () => ({ appName: config.appName, version: app.getVersion(), portable: isPortable(), info: publicInfo(cachedManifest()) }));
   ipcMain.handle('info:refresh', async () => {
     try { return publicInfo(await fetchManifest(gameDir(), true)); } catch { return publicInfo(cachedManifest()); }
   });
@@ -258,6 +275,40 @@ app.whenReady().then(() => {
   ipcMain.handle('accounts:addMicrosoft', () => accounts.addMicrosoft());
   ipcMain.handle('accounts:select', (_e, id) => accounts.select(id));
   ipcMain.handle('accounts:remove', (_e, id) => accounts.remove(id));
+
+  // ---- skin (konta Microsoft) ----
+  const skinState = async () => {
+    const token = await accounts.getMinecraftToken();
+    const p = await skin.getProfile(token);
+    return {
+      name: p.name,
+      variant: p.skin ? p.skin.variant : 'classic',
+      dataUrl: p.skin ? await skin.toDataUrl(p.skin.url) : null,
+    };
+  };
+  ipcMain.handle('skin:get', () => skinState());
+  ipcMain.handle('skin:pick', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Wybierz plik skina (PNG 64×64)',
+      filters: [{ name: 'Skin Minecraft', extensions: ['png'] }],
+      properties: ['openFile'],
+    });
+    if (r.canceled) return null;
+    const buf = fs.readFileSync(r.filePaths[0]);
+    const size = skin.validateSkin(buf);
+    return { path: r.filePaths[0], ...size, dataUrl: `data:image/png;base64,${buf.toString('base64')}` };
+  });
+  ipcMain.handle('skin:set', async (_e, file, variant) => {
+    const buf = fs.readFileSync(file);
+    await skin.uploadSkin(await accounts.getMinecraftToken(), buf, variant);
+    log(`Ustawiono nowego skina (${variant === 'slim' ? 'model smukły' : 'model klasyczny'}).`);
+    return skinState();
+  });
+  ipcMain.handle('skin:reset', async () => {
+    await skin.resetSkin(await accounts.getMinecraftToken());
+    log('Przywrócono domyślnego skina.');
+    return skinState();
+  });
 
   ipcMain.handle('game:play', () => play());
   ipcMain.handle('game:repair', () => repair());
@@ -289,11 +340,17 @@ app.whenReady().then(() => {
   ipcMain.handle('update:get', () => updateState);
   ipcMain.handle('update:check', () => {
     if (!app.isPackaged) return setUpdate({ state: 'dev' });
+    if (portableUpdater) return portableUpdater.check();
     return autoUpdater.checkForUpdates().catch((e) => setUpdate({ state: 'error', error: e.message }));
   });
   ipcMain.handle('update:install', () => {
     if (running) throw new Error('Zamknij grę przed aktualizacją launchera.');
-    if (updateState.state === 'ready') autoUpdater.quitAndInstall(true, true);
+    if (updateState.state !== 'ready') return;
+    if (portableUpdater) portableUpdater.install(() => app.quit());
+    else autoUpdater.quitAndInstall(true, true);
+  });
+  ipcMain.handle('update:showFile', () => {
+    if (updateState.state === 'manual' && updateState.file) shell.showItemInFolder(updateState.file);
   });
 
   win = new BrowserWindow({

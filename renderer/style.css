@@ -28,9 +28,8 @@ header { display: flex; align-items: center; gap: 12px; padding: 14px 22px 10px;
 .logo { width: 38px; height: 38px; image-rendering: pixelated; }
 h1 { margin: 0; font-size: 22px; letter-spacing: .5px; }
 .update-bar { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; background: rgba(47, 111, 222, .15); border: 1px solid #2f6fde55; border-radius: 8px; padding: 4px 6px 4px 12px; }
-.update-bar + .ghost { margin-left: 0; }
-header .ghost { margin-left: auto; }
-.update-bar:not(.hidden) ~ .ghost { margin-left: 0; }
+#btn-settings { margin-left: auto; }
+.update-bar:not(.hidden) + #btn-settings { margin-left: 0; }
 .update-bar .primary-sm { padding: 5px 10px; font-size: 12px; }
 
 /* main */
@@ -101,3 +100,14 @@ select { width: 100%; }
 .acc-row .rm { background: transparent; color: #ff7a7a; padding: 2px 8px; }
 details { margin-top: 14px; }
 summary { cursor: pointer; color: #8b8f9a; margin-bottom: 8px; }
+
+/* skin */
+.skin-btn { width: 100%; margin-top: 10px; }
+.skin-panel { width: 520px; }
+.skin-previews { display: flex; align-items: center; justify-content: center; gap: 28px; margin: 6px 0 14px; }
+.skin-previews figure { margin: 0; text-align: center; }
+.skin-previews canvas { width: 96px; height: 192px; image-rendering: pixelated; background: #0e1014; border-radius: 10px; padding: 10px; box-sizing: content-box; }
+.skin-previews figcaption { font-size: 12px; color: #8b8f9a; margin-top: 6px; }
+.skin-previews .arrow { font-size: 26px; color: #8b8f9a; }
+.row.center { justify-content: center; align-items: center; gap: 14px; }
+.link-btn { background: transparent; color: #ff9a7a; margin-right: auto; }

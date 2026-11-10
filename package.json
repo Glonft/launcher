@@ -31,7 +31,10 @@
       "renderer/**"
     ],
     "win": {
-      "target": "nsis"
+      "target": [
+        "nsis",
+        "portable"
+      ]
     },
     "nsis": {
       "oneClick": true,
@@ -51,7 +54,10 @@
         "releaseType": "release"
       }
     ],
-    "copyright": "Copyright © 2026 Zelek"
+    "copyright": "Copyright © 2026 Zelek",
+    "portable": {
+      "artifactName": "MelinaSMP-Launcher-Portable.${ext}"
+    }
   },
   "author": {
     "name": "Zelek"

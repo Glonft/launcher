@@ -96,6 +96,7 @@ function renderAccounts(state) {
   if (!a) return;
 
   $('player').textContent = a.name;
+  $('btn-skin').classList.toggle('hidden', a.type !== 'microsoft');
   $('acc-type').textContent = a.type === 'microsoft' ? 'Konto Microsoft (premium)' : 'Konto non-premium';
   const av = $('avatar');
   av.textContent = '';
@@ -150,6 +151,116 @@ const addOffline = async () => {
 $('btn-offline').onclick = addOffline;
 $('nick').onkeydown = (e) => { if (e.key === 'Enter') addOffline(); };
 
+// ---------- skin ----------
+let pickedSkin = null;
+
+/** Rysuje postać od przodu z pliku skina (64×64 lub stary 64×32). */
+function drawSkin(canvas, dataUrl, slim) {
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!dataUrl) return;
+  const img = new Image();
+  img.onload = () => {
+    const legacy = img.height === 32;
+    const aw = slim ? 3 : 4;
+    const part = (sx, sy, w, h, dx, dy, mirror = false) => {
+      if (!mirror) return ctx.drawImage(img, sx, sy, w, h, dx, dy, w, h);
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, sx, sy, w, h, -dx - w, dy, w, h);
+      ctx.restore();
+    };
+    ctx.clearRect(0, 0, 16, 32);
+    // warstwa podstawowa
+    part(8, 8, 8, 8, 4, 0);                       // głowa
+    part(20, 20, 8, 12, 4, 8);                    // tułów
+    part(44, 20, aw, 12, 4 - aw, 8);              // prawa ręka
+    if (legacy) part(44, 20, aw, 12, 12, 8, true); else part(36, 52, aw, 12, 12, 8); // lewa ręka
+    part(4, 20, 4, 12, 4, 20);                    // prawa noga
+    if (legacy) part(4, 20, 4, 12, 8, 20, true); else part(20, 52, 4, 12, 8, 20);    // lewa noga
+    // druga warstwa (czapka, kurtka, rękawy, spodnie)
+    part(40, 8, 8, 8, 4, 0);
+    if (!legacy) {
+      part(20, 36, 8, 12, 4, 8);
+      part(44, 36, aw, 12, 4 - aw, 8);
+      part(52, 52, aw, 12, 12, 8);
+      part(4, 36, 4, 12, 4, 20);
+      part(4, 52, 4, 12, 8, 20);
+    }
+  };
+  img.src = dataUrl;
+}
+
+const variant = () => document.querySelector('input[name=variant]:checked').value;
+function setVariant(v) { document.querySelector(`input[name=variant][value=${v}]`).checked = true; }
+
+async function openSkin() {
+  pickedSkin = null;
+  $('skin-error').textContent = '';
+  $('skin-status').textContent = 'Wczytywanie obecnego skina…';
+  $('btn-skin-set').disabled = true;
+  $('skin-new-caption').textContent = 'Nowy (wybierz plik)';
+  drawSkin($('skin-new'), null);
+  drawSkin($('skin-current'), null);
+  $('skin-name').textContent = accountsState.active ? accountsState.active.name : '';
+  $('skin-dialog').classList.remove('hidden');
+  try {
+    const s = await L.getSkin();
+    $('skin-name').textContent = s.name;
+    setVariant(s.variant);
+    drawSkin($('skin-current'), s.dataUrl, s.variant === 'slim');
+    $('skin-status').textContent = '';
+  } catch (e) {
+    $('skin-status').textContent = '';
+    $('skin-error').textContent = cleanErr(e);
+  }
+}
+
+$('btn-skin').onclick = openSkin;
+$('btn-skin-close').onclick = () => $('skin-dialog').classList.add('hidden');
+$('btn-skin-pick').onclick = async () => {
+  $('skin-error').textContent = '';
+  try {
+    const f = await L.pickSkin();
+    if (!f) return;
+    pickedSkin = f;
+    drawSkin($('skin-new'), f.dataUrl, variant() === 'slim');
+    $('skin-new-caption').textContent = `Nowy (${f.width}×${f.height})`;
+    $('btn-skin-set').disabled = false;
+  } catch (e) { $('skin-error').textContent = cleanErr(e); }
+};
+for (const r of document.querySelectorAll('input[name=variant]')) {
+  r.onchange = () => { if (pickedSkin) drawSkin($('skin-new'), pickedSkin.dataUrl, variant() === 'slim'); };
+}
+$('btn-skin-set').onclick = async () => {
+  $('skin-error').textContent = '';
+  $('btn-skin-set').disabled = true;
+  $('skin-status').textContent = 'Wysyłanie skina…';
+  try {
+    const s = await L.setSkin(pickedSkin.path, variant());
+    drawSkin($('skin-current'), s.dataUrl, s.variant === 'slim');
+    $('skin-status').textContent = '✔ Skin zmieniony! Wejdź ponownie na serwer, żeby go zobaczyć.';
+    pickedSkin = null;
+    drawSkin($('skin-new'), null);
+    $('skin-new-caption').textContent = 'Nowy (wybierz plik)';
+    renderAccounts(await L.getAccounts()); // odświeża główkę
+  } catch (e) {
+    $('skin-status').textContent = '';
+    $('skin-error').textContent = cleanErr(e);
+    $('btn-skin-set').disabled = false;
+  }
+};
+$('btn-skin-reset').onclick = async () => {
+  if (!confirm('Przywrócić domyślnego skina (Steve/Alex)?')) return;
+  $('skin-error').textContent = '';
+  try {
+    const s = await L.resetSkin();
+    drawSkin($('skin-current'), s.dataUrl, s.variant === 'slim');
+    $('skin-status').textContent = '✔ Przywrócono domyślnego skina.';
+  } catch (e) { $('skin-error').textContent = cleanErr(e); }
+};
+
 // ---------- granie ----------
 function updatePlayButton() {
   const b = $('btn-play');
@@ -184,15 +295,18 @@ function showUpdate(u) {
   const txt = $('update-text');
   const btn = $('btn-update-install');
   btn.classList.add('hidden');
+  $('btn-update-show').classList.add('hidden');
   bar.classList.remove('hidden');
   switch (u.state) {
     case 'downloading': txt.textContent = `Pobieranie aktualizacji ${u.version || ''}… ${u.percent || 0}%`; break;
     case 'ready': txt.textContent = `Nowa wersja ${u.version} gotowa`; btn.classList.remove('hidden'); break;
+    case 'manual': txt.textContent = `Wersja ${u.version} pobrana do folderu Pobrane`; $('btn-update-show').classList.remove('hidden'); break;
     default: bar.classList.add('hidden');
   }
   const info = {
     checking: 'Sprawdzanie aktualizacji…', latest: 'Masz najnowszą wersję launchera.',
     downloading: `Pobieranie wersji ${u.version || ''}…`, ready: `Wersja ${u.version} pobrana – kliknij „Uruchom ponownie i zaktualizuj” na górze.`,
+    manual: `Wersja ${u.version} pobrana do folderu Pobrane – ten folder nie pozwala na automatyczną podmianę, uruchom nowy plik ręcznie.`,
     error: `Błąd aktualizacji: ${u.error || ''}`, dev: 'Tryb deweloperski – aktualizacje wyłączone.',
   }[u.state];
   if (info) $('version-info').dataset.update = info;
@@ -200,13 +314,14 @@ function showUpdate(u) {
 }
 function renderVersionInfo() {
   const v = $('version-info');
-  v.textContent = `Launcher v${v.dataset.version || '?'}${v.dataset.update ? ' · ' + v.dataset.update : ''}`;
+  v.textContent = `Launcher v${v.dataset.version || '?'}${v.dataset.portable ? ' (portable)' : ''}${v.dataset.update ? ' · ' + v.dataset.update : ''}`;
 }
 L.on('update', showUpdate);
 $('btn-update-install').onclick = async () => {
   try { await L.installUpdate(); } catch (e) { addLog('BŁĄD: ' + cleanErr(e)); }
 };
 $('btn-check-update').onclick = () => L.checkUpdate();
+$('btn-update-show').onclick = () => L.showUpdateFile();
 
 // ---------- ustawienia ----------
 let pendingDir = null;
@@ -330,6 +445,7 @@ async function init() {
   document.title = a.appName;
   $('title').textContent = a.appName;
   $('version-info').dataset.version = a.version;
+  if (a.portable) $('version-info').dataset.portable = '1';
   renderVersionInfo();
   showInfo(a.info);
   renderAccounts(await L.getAccounts());

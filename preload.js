@@ -13,6 +13,11 @@ contextBridge.exposeInMainWorld('launcher', {
   selectAccount: (id) => invoke('accounts:select', id),
   removeAccount: (id) => invoke('accounts:remove', id),
 
+  getSkin: () => invoke('skin:get'),
+  pickSkin: () => invoke('skin:pick'),
+  setSkin: (file, variant) => invoke('skin:set', file, variant),
+  resetSkin: () => invoke('skin:reset'),
+
   play: () => invoke('game:play'),
   repair: () => invoke('game:repair'),
   openFolder: () => invoke('game:openFolder'),
@@ -26,6 +31,7 @@ contextBridge.exposeInMainWorld('launcher', {
   getUpdate: () => invoke('update:get'),
   checkUpdate: () => invoke('update:check'),
   installUpdate: () => invoke('update:install'),
+  showUpdateFile: () => invoke('update:showFile'),
 
   on: (channel, cb) => {
     if (['log', 'progress', 'state', 'error', 'info', 'update'].includes(channel)) {

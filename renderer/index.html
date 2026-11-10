@@ -13,6 +13,7 @@
     <div id="update-bar" class="update-bar hidden">
       <span id="update-text"></span>
       <button id="btn-update-install" class="primary-sm hidden">Uruchom ponownie i zaktualizuj</button>
+      <button id="btn-update-show" class="primary-sm hidden">Pokaż plik</button>
     </div>
     <button id="btn-settings" class="ghost">⚙ Ustawienia</button>
   </header>
@@ -52,6 +53,7 @@
           </div>
           <select id="account-select" title="Zmień konto"></select>
         </div>
+        <button id="btn-skin" class="ghost skin-btn hidden">🎨 Zmień skina</button>
       </div>
 
       <button id="btn-play" class="play" disabled>GRAJ</button>
@@ -79,6 +81,37 @@
       </div>
       <p id="login-error" class="error"></p>
       <div class="row end"><button id="btn-add-cancel">Anuluj</button></div>
+    </div>
+  </div>
+
+  <!-- Skin -->
+  <div id="skin-dialog" class="overlay hidden">
+    <div class="panel skin-panel">
+      <h2>Skin – <span id="skin-name"></span></h2>
+      <div class="skin-previews">
+        <figure>
+          <canvas id="skin-current" width="16" height="32"></canvas>
+          <figcaption>Obecny</figcaption>
+        </figure>
+        <div class="arrow">→</div>
+        <figure>
+          <canvas id="skin-new" width="16" height="32"></canvas>
+          <figcaption id="skin-new-caption">Nowy (wybierz plik)</figcaption>
+        </figure>
+      </div>
+      <div class="row center">
+        <button id="btn-skin-pick">Wybierz plik PNG…</button>
+        <label class="check"><input type="radio" name="variant" value="classic" checked> Klasyczny (Steve)</label>
+        <label class="check"><input type="radio" name="variant" value="slim"> Smukły (Alex)</label>
+      </div>
+      <p class="hint">Skin zmienia się na całym Twoim koncie Minecraft (tak jak w oficjalnym launcherze). Na serwerze zobaczysz go po ponownym wejściu.</p>
+      <p id="skin-status" class="hint"></p>
+      <p id="skin-error" class="error"></p>
+      <div class="row end sticky-actions">
+        <button id="btn-skin-reset" class="link-btn">Przywróć domyślny</button>
+        <button id="btn-skin-close">Zamknij</button>
+        <button id="btn-skin-set" class="primary-sm" disabled>Ustaw skina</button>
+      </div>
     </div>
   </div>
 

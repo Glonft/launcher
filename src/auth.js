@@ -109,13 +109,15 @@ class AccountStore {
     return this.state();
   }
 
-  /** Obiekt autoryzacji aktywnego konta dla minecraft-launcher-core. */
-  async getLaunchAuth() {
+  _activeRaw() {
     const d = this._read();
-    const a = d.list.find((x) => x.id === d.active) || d.list[0];
-    if (!a) throw new Error('Najpierw dodaj konto.');
-    if (a.type === 'offline') return Authenticator.getAuth(a.name);
+    return d.list.find((x) => x.id === d.active) || d.list[0] || null;
+  }
 
+  /** Świeża sesja Minecraft dla konta Microsoft (trzymana w pamięci ok. 10 minut). */
+  async _msSession(a) {
+    const c = this._cache;
+    if (c && c.id === a.id && Date.now() - c.at < 10 * 60 * 1000) return c.mc;
     let xbox;
     try {
       xbox = await this._auth().refresh(this._dec(a));
@@ -123,8 +125,29 @@ class AccountStore {
       throw new Error(`Sesja konta Microsoft wygasła – usuń konto ${a.name} i dodaj je ponownie. (${e.message || e})`);
     }
     const mc = await xbox.getMinecraft();
-    this._upsert({ ...a, name: mc.profile.name, ...this._enc(xbox.save()) });
-    return mc.mclc();
+    const d = this._read();
+    const updated = { ...a, name: mc.profile.name, ...this._enc(xbox.save()) };
+    d.list = d.list.map((x) => (x.id === a.id ? updated : x)); // bez zmiany aktywnego konta
+    this._write(d);
+    this._cache = { id: a.id, at: Date.now(), mc };
+    return mc;
+  }
+
+  /** Obiekt autoryzacji aktywnego konta dla minecraft-launcher-core. */
+  async getLaunchAuth() {
+    const a = this._activeRaw();
+    if (!a) throw new Error('Najpierw dodaj konto.');
+    if (a.type === 'offline') return Authenticator.getAuth(a.name);
+    return (await this._msSession(a)).mclc();
+  }
+
+  /** Token API Minecraft aktywnego konta Microsoft (do zmiany skina). */
+  async getMinecraftToken() {
+    const a = this._activeRaw();
+    if (!a) throw new Error('Najpierw dodaj konto.');
+    if (a.type !== 'microsoft') throw new Error('Zmiana skina w launcherze działa na razie tylko dla kont Microsoft (premium).');
+    const auth = (await this._msSession(a)).mclc();
+    return auth.access_token;
   }
 }
 
