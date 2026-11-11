@@ -264,9 +264,46 @@ async function changeGameDir(newDir, move) {
 
 // ---------- aktualizacje launchera ----------
 
+// Aktualizacje nie instalują się same: gracz klika „Zaktualizuj” albo „Później”.
+// Wyjątek: minimalna wersja ustawiona przez admina w panelu (minLauncher) – wtedy aktualizacja jest wymagana.
+let installWhenReady = false;
+
+function forcedVersion() {
+  return requiredLauncher(cachedManifest());
+}
+
 function setUpdate(s) {
-  updateState = s;
-  send('update', s);
+  updateState = { ...s, forced: forcedVersion(), skipped: !!s.version && settings.get().skippedUpdate === s.version };
+  send('update', updateState);
+  if (updateState.state === 'ready' && installWhenReady && !running) {
+    installWhenReady = false;
+    setTimeout(() => installUpdate(), 800);
+  }
+}
+
+function checkForUpdate() {
+  if (!app.isPackaged) return setUpdate({ state: 'dev' });
+  if (['downloading', 'ready', 'manual'].includes(updateState.state)) return updateState;
+  if (portableUpdater) return portableUpdater.check();
+  return autoUpdater.checkForUpdates().catch((e) => setUpdate({ state: 'error', error: String(e.message || e).split('\n')[0] }));
+}
+
+/** „Zaktualizuj”: pobiera i od razu instaluje (restart launchera). */
+function startUpdate() {
+  if (!app.isPackaged) return;
+  if (updateState.state === 'ready') return installUpdate();
+  if (updateState.state !== 'available') return;
+  installWhenReady = true;
+  setUpdate({ state: 'downloading', version: updateState.version, percent: 0 });
+  if (portableUpdater) return portableUpdater.download();
+  return autoUpdater.downloadUpdate().catch((e) => setUpdate({ state: 'error', error: String(e.message || e).split('\n')[0] }));
+}
+
+function installUpdate() {
+  if (running) throw new Error('Zamknij grę przed aktualizacją launchera.');
+  if (updateState.state !== 'ready') return;
+  if (portableUpdater) portableUpdater.install(() => app.quit());
+  else autoUpdater.quitAndInstall(true, true);
 }
 
 function initUpdater() {
@@ -279,22 +316,18 @@ function initUpdater() {
       owner: pub.owner, repo: pub.repo, currentVersion: app.getVersion(),
       downloadsDir: app.getPath('downloads'), onState: setUpdate,
     });
-    portableUpdater.check();
-    setInterval(() => {
-      if (!['ready', 'manual', 'downloading'].includes(updateState.state)) portableUpdater.check();
-    }, 60 * 60 * 1000);
-    return;
+  } else {
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.on('checking-for-update', () => setUpdate({ state: 'checking' }));
+    autoUpdater.on('update-not-available', () => setUpdate({ state: 'latest' }));
+    autoUpdater.on('update-available', (i) => setUpdate({ state: 'available', version: i.version }));
+    autoUpdater.on('download-progress', (p) => setUpdate({ ...updateState, state: 'downloading', percent: Math.round(p.percent) }));
+    autoUpdater.on('update-downloaded', (i) => setUpdate({ state: 'ready', version: i.version }));
+    autoUpdater.on('error', (e) => setUpdate({ state: 'error', error: String(e && e.message || e).split('\n')[0] }));
   }
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on('checking-for-update', () => setUpdate({ state: 'checking' }));
-  autoUpdater.on('update-not-available', () => setUpdate({ state: 'latest' }));
-  autoUpdater.on('update-available', (i) => setUpdate({ state: 'downloading', version: i.version, percent: 0 }));
-  autoUpdater.on('download-progress', (p) => setUpdate({ ...updateState, state: 'downloading', percent: Math.round(p.percent) }));
-  autoUpdater.on('update-downloaded', (i) => setUpdate({ state: 'ready', version: i.version }));
-  autoUpdater.on('error', (e) => setUpdate({ state: 'error', error: String(e && e.message || e).split('\n')[0] }));
-  autoUpdater.checkForUpdates().catch(() => {});
-  setInterval(() => { if (updateState.state !== 'ready') autoUpdater.checkForUpdates().catch(() => {}); }, 60 * 60 * 1000);
+  checkForUpdate();
+  setInterval(checkForUpdate, 60 * 60 * 1000);
 }
 
 // ---------- start ----------
@@ -472,18 +505,23 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('settings:changeGameDir', (_e, dir, move) => changeGameDir(dir, move));
 
-  ipcMain.handle('update:get', () => updateState);
+  ipcMain.handle('update:get', () => ({
+    ...updateState,
+    forced: forcedVersion(),
+    skipped: !!updateState.version && settings.get().skippedUpdate === updateState.version,
+  }));
   ipcMain.handle('update:check', () => {
-    if (!app.isPackaged) return setUpdate({ state: 'dev' });
-    if (portableUpdater) return portableUpdater.check();
-    return autoUpdater.checkForUpdates().catch((e) => setUpdate({ state: 'error', error: e.message }));
+    // ręczne sprawdzenie w ustawieniach „odkrywa” odłożoną wersję
+    if (settings.get().skippedUpdate) settings.set({ skippedUpdate: null });
+    return checkForUpdate();
   });
-  ipcMain.handle('update:install', () => {
-    if (running) throw new Error('Zamknij grę przed aktualizacją launchera.');
-    if (updateState.state !== 'ready') return;
-    if (portableUpdater) portableUpdater.install(() => app.quit());
-    else autoUpdater.quitAndInstall(true, true);
+  ipcMain.handle('update:start', () => startUpdate());
+  ipcMain.handle('update:later', () => {
+    if (forcedVersion()) throw new Error('Ta aktualizacja jest wymagana przez serwer.');
+    if (updateState.version) settings.set({ skippedUpdate: updateState.version });
+    setUpdate({ ...updateState });
   });
+  ipcMain.handle('update:install', () => installUpdate());
   ipcMain.handle('update:showFile', () => {
     if (updateState.state === 'manual' && updateState.file) shell.showItemInFolder(updateState.file);
   });

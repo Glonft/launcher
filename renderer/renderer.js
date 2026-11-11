@@ -47,7 +47,7 @@ function showInfo(info) {
     box.textContent = info.requiredLauncher
       ? `Ten serwer wymaga launchera ${info.requiredLauncher} lub nowszego. Zaktualizuj launcher, żeby zagrać.`
       : '';
-    if (info.requiredLauncher) L.checkUpdate && L.checkUpdate();
+    if (info.requiredLauncher) L.getUpdate().then(showUpdate).catch(() => {});
   }
   if (!Array.isArray(info.news)) return;
   const list = $('news-list');
@@ -358,18 +358,25 @@ L.on('error', (msg) => {
 function showUpdate(u) {
   const bar = $('update-bar');
   const txt = $('update-text');
-  const btn = $('btn-update-install');
-  btn.classList.add('hidden');
-  $('btn-update-show').classList.add('hidden');
+  const show = (id, on) => $(id).classList.toggle('hidden', !on);
+  ['btn-update-start', 'btn-update-later', 'btn-update-install', 'btn-update-show'].forEach((id) => show(id, false));
   bar.classList.remove('hidden');
+  bar.classList.toggle('forced', !!u.forced);
   switch (u.state) {
+    case 'available':
+      if (u.skipped && !u.forced) { bar.classList.add('hidden'); break; }
+      txt.textContent = u.forced ? `Wymagana aktualizacja do wersji ${u.version}` : `Dostępna nowa wersja ${u.version}`;
+      show('btn-update-start', true);
+      show('btn-update-later', !u.forced);
+      break;
     case 'downloading': txt.textContent = `Pobieranie aktualizacji ${u.version || ''}… ${u.percent || 0}%`; break;
-    case 'ready': txt.textContent = `Nowa wersja ${u.version} gotowa`; btn.classList.remove('hidden'); break;
-    case 'manual': txt.textContent = `Wersja ${u.version} pobrana do folderu Pobrane`; $('btn-update-show').classList.remove('hidden'); break;
+    case 'ready': txt.textContent = `Wersja ${u.version} gotowa`; show('btn-update-install', true); break;
+    case 'manual': txt.textContent = `Wersja ${u.version} pobrana do folderu Pobrane`; show('btn-update-show', true); break;
     default: bar.classList.add('hidden');
   }
   const info = {
     checking: 'Sprawdzanie aktualizacji…', latest: 'Masz najnowszą wersję launchera.',
+    available: u.skipped && !u.forced ? `Dostępna wersja ${u.version} (odłożona – kliknij „Sprawdź aktualizacje”, żeby ją pokazać)` : `Dostępna wersja ${u.version}`,
     downloading: `Pobieranie wersji ${u.version || ''}…`, ready: `Wersja ${u.version} pobrana – kliknij „Uruchom ponownie i zaktualizuj” na górze.`,
     manual: `Wersja ${u.version} pobrana do folderu Pobrane – ten folder nie pozwala na automatyczną podmianę, uruchom nowy plik ręcznie.`,
     error: `Błąd aktualizacji: ${u.error || ''}`, dev: 'Tryb deweloperski – aktualizacje wyłączone.',
@@ -387,6 +394,12 @@ L.on('seed', (st) => {
   box.classList.toggle('hidden', !st);
   if (st) box.textContent = `W tle: ${st.name} – ${st.total ? Math.floor((st.done / st.total) * 100) : 0}% (${fmtBytes(st.done)}${st.total ? ` z ${fmtBytes(st.total)}` : ''})`;
 });
+$('btn-update-start').onclick = async () => {
+  try { await L.startUpdate(); } catch (e) { addLog('BŁĄD: ' + cleanErr(e)); }
+};
+$('btn-update-later').onclick = async () => {
+  try { await L.laterUpdate(); } catch (e) { addLog('BŁĄD: ' + cleanErr(e)); }
+};
 $('btn-update-install').onclick = async () => {
   try { await L.installUpdate(); } catch (e) { addLog('BŁĄD: ' + cleanErr(e)); }
 };

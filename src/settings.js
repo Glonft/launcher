@@ -49,6 +49,8 @@ class SettingsStore {
     }
     s.addons = addons;
 
+    s.skippedUpdate = /^\d+\.\d+\.\d+$/.test(String(s.skippedUpdate || '')) ? String(s.skippedUpdate) : null;
+
     s.gameDir = path.resolve(String(s.gameDir || this.defaults.gameDir));
 
     fs.mkdirSync(path.dirname(this.file), { recursive: true });

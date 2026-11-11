@@ -52,9 +52,28 @@ class PortableUpdater {
     this.ready = null; // { version, file, inPlace }
   }
 
+  /** Sprawdza, czy jest nowa wersja (bez pobierania). */
   async check() {
     const { owner, repo, currentVersion, onState } = this.o;
     onState({ state: 'checking' });
+    try {
+      const res = await fetch(`${this.o.apiBase || 'https://api.github.com'}/repos/${owner}/${repo}/releases/latest`, {
+        headers: { 'User-Agent': 'melinasmp-launcher', Accept: 'application/vnd.github+json' },
+      });
+      if (!res.ok) throw new Error(`GitHub HTTP ${res.status}`);
+      const rel = await res.json();
+      const version = String(rel.tag_name || '').replace(/^v/, '');
+      if (!newer(version, currentVersion)) return onState({ state: 'latest' });
+      this.available = version;
+      return onState({ state: 'available', version });
+    } catch (e) {
+      return onState({ state: 'error', error: e.message || String(e) });
+    }
+  }
+
+  /** Pobiera najnowszą wersję (po kliknięciu „Zaktualizuj”). */
+  async download() {
+    const { owner, repo, currentVersion, onState } = this.o;
     try {
       const res = await fetch(`${this.o.apiBase || 'https://api.github.com'}/repos/${owner}/${repo}/releases/latest`, {
         headers: { 'User-Agent': 'melinasmp-launcher', Accept: 'application/vnd.github+json' },

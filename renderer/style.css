@@ -135,3 +135,5 @@ summary { cursor: pointer; color: #8b8f9a; margin-bottom: 8px; }
 .announcement.warn { background: rgba(224, 161, 0, .14); border-color: #e0a10077; color: #ffe2a3; }
 .seed-status { margin-left: 14px; color: #9fc0ff; }
 .warn-text { color: #ffc566; }
+.ghost-sm { background: transparent; border: 1px solid #3a3f4b; padding: 5px 10px; font-size: 12px; }
+.update-bar.forced { border-color: #e0a10088; background: rgba(224, 161, 0, .14); }

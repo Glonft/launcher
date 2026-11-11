@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('launcher', {
   getUpdate: () => invoke('update:get'),
   checkUpdate: () => invoke('update:check'),
   installUpdate: () => invoke('update:install'),
+  startUpdate: () => invoke('update:start'),
+  laterUpdate: () => invoke('update:later'),
   showUpdateFile: () => invoke('update:showFile'),
 
   on: (channel, cb) => {
