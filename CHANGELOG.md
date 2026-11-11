@@ -8,6 +8,13 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.7.0
+- Ogłoszenia od administracji na górze launchera
+- Dodatki pokazują swój rozmiar, a duże dodatki pobierają się w tle – możesz grać w trakcie
+- Przerwane pobieranie dodatku wznawia się od miejsca, w którym stanęło
+- Serwer widnieje na liście serwerów w grze pod nazwą MelinaSMP
+- Jeśli launcher jest za stary, dostaniesz jasną prośbę o aktualizację
+
 ## 0.6.0
 - Skiny dla kont non-premium: wybierz plik w oknie „Skin i peleryna”, a launcher przygotuje gotową komendę do wklejenia w grze – skina zobaczą wszyscy na serwerze
 
