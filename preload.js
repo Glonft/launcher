@@ -37,7 +37,7 @@ contextBridge.exposeInMainWorld('launcher', {
   showUpdateFile: () => invoke('update:showFile'),
 
   on: (channel, cb) => {
-    if (['log', 'progress', 'state', 'error', 'info', 'update'].includes(channel)) {
+    if (['log', 'progress', 'state', 'error', 'info', 'update', 'seed'].includes(channel)) {
       ipcRenderer.on(channel, (_e, data) => cb(data));
     }
   },

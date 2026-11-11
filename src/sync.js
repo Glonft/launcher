@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { download, sha1File } = require('./download');
+const seed = require('./seed');
 
 function walk(dir) {
   const out = [];
@@ -29,12 +30,14 @@ function enabledAddons(manifest, choices = {}) {
  * Doprowadza folder gry do stanu z manifestu:
  *  - pobiera brakujące / zmienione pliki (porównanie SHA-1),
  *  - usuwa z "managedDirs" (domyślnie mods/) wszystko, czego nie ma w manifeście,
- *  - dodatki opcjonalne: włączone pobiera, wyłączone usuwa.
+ *  - dodatki opcjonalne: włączone pobiera, wyłączone usuwa,
+ *  - duże pliki „seed” wgrywa, jeśli są już pobrane; zwraca listę tych do pobrania w tle.
  */
 async function syncModpack(manifest, gameDir, log, progress, addonChoices = {}) {
   const enabled = enabledAddons(manifest, addonChoices);
   const enabledIds = new Set(enabled.map((g) => g.id));
-  const files = [...manifest.files, ...enabled.flatMap((g) => g.files)];
+  // pliki „seed” (np. teren Distant Horizons) obsługuje osobno seed.js
+  const files = [...manifest.files, ...enabled.flatMap((g) => g.files.filter((f) => !f.seed))];
 
   const wanted = new Set();
   const toDownload = [];
@@ -53,6 +56,7 @@ async function syncModpack(manifest, gameDir, log, progress, addonChoices = {}) 
   for (const g of manifest.optional || []) {
     if (enabledIds.has(g.id)) continue;
     for (const f of g.files) {
+      if (f.seed) continue; // dane gracza (np. teren DH) zostają po wyłączeniu dodatku
       const dest = safeJoin(gameDir, f.path);
       if (!wanted.has(dest) && fs.existsSync(dest)) {
         fs.rmSync(dest);
@@ -81,6 +85,9 @@ async function syncModpack(manifest, gameDir, log, progress, addonChoices = {}) 
     );
   }
   log(toDownload.length ? `Zaktualizowano ${toDownload.length} plików.` : 'Paczka jest aktualna.');
+
+  seed.cleanupDisabled(manifest, enabledIds, gameDir, safeJoin, log);
+  return seed.applyReady(seed.seedFiles(enabled, gameDir, safeJoin), gameDir, log);
 }
 
 module.exports = { syncModpack, enabledAddons };

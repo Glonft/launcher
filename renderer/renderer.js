@@ -382,6 +382,11 @@ function renderVersionInfo() {
   v.textContent = `Launcher v${v.dataset.version || '?'}${v.dataset.portable ? ' (portable)' : ''}${v.dataset.update ? ' · ' + v.dataset.update : ''}`;
 }
 L.on('update', showUpdate);
+L.on('seed', (st) => {
+  const box = $('seed-status');
+  box.classList.toggle('hidden', !st);
+  if (st) box.textContent = `W tle: ${st.name} – ${st.total ? Math.floor((st.done / st.total) * 100) : 0}% (${fmtBytes(st.done)}${st.total ? ` z ${fmtBytes(st.total)}` : ''})`;
+});
 $('btn-update-install').onclick = async () => {
   try { await L.installUpdate(); } catch (e) { addLog('BŁĄD: ' + cleanErr(e)); }
 };
@@ -399,6 +404,12 @@ function updateRamLabels() {
   $('ram-min-val').textContent = `${$('ram-min').value} GB`;
 }
 
+function fmtBytes(n) {
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1).replace('.', ',')} GB`;
+  if (n >= 1e6) return `${Math.round(n / 1e6)} MB`;
+  return `${Math.max(1, Math.round(n / 1e3))} KB`;
+}
+
 function renderAddons(optional, choices) {
   const box = $('addons-list');
   box.replaceChildren();
@@ -409,8 +420,13 @@ function renderAddons(optional, choices) {
   for (const g of optional) {
     const cb = el('input', { type: 'checkbox', checked: g.id in choices ? !!choices[g.id] : g.default });
     cb.dataset.addon = g.id;
-    box.append(el('label', { className: 'addon check' }, cb,
-      el('div', {}, el('div', { textContent: g.name }), el('div', { className: 'desc', textContent: g.description }))));
+    const info = el('div', {}, el('div', { textContent: g.name + (g.size ? `  ·  ${fmtBytes(g.size)}` : '') }),
+      el('div', { className: 'desc', textContent: g.description }));
+    if (g.replacesData) {
+      info.append(el('div', { className: 'desc warn-text', textContent:
+        'Zastąpi Twoje obecne dane tego dodatku (kopia zostanie zachowana jako plik .kopia). Pobiera się w tle – możesz grać w trakcie.' }));
+    }
+    box.append(el('label', { className: 'addon check' }, cb, info));
   }
 }
 

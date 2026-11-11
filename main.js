@@ -7,6 +7,8 @@ const { autoUpdater } = require('electron-updater');
 const config = require('./config.json');
 const { AccountStore } = require('./src/auth');
 const { syncModpack } = require('./src/sync');
+const { downloadInBackground } = require('./src/seed');
+const { ensureServerEntry } = require('./src/servers-dat');
 const { ensureJava } = require('./src/java');
 const { ensureLoader, LOADERS } = require('./src/loaders');
 const { SettingsStore, isEmptyDir, isInside } = require('./src/settings');
@@ -90,6 +92,8 @@ function publicInfo(manifest) {
     news: (manifest && manifest.news) || [],
     optional: ((manifest && manifest.optional) || []).map((g) => ({
       id: g.id, name: g.name, description: g.description || '', default: !!g.default,
+      size: g.files.reduce((n, f) => n + (Number(f.size) || 0), 0),
+      replacesData: g.files.some((f) => f.seed),
     })),
     packVersion: manifest ? manifest.version : null,
   };
@@ -110,13 +114,27 @@ async function prepare(dir) {
 
   const java = await ensureJava(dir, log, progress, manifest.java);
   progress('Synchronizacja modów...', 0);
-  await syncModpack(manifest, dir, log, progress, settings.get().addons || {});
+  const seedTodo = await syncModpack(manifest, dir, log, progress, settings.get().addons || {});
+  startSeedDownloads(seedTodo);
 
   const type = String((manifest.loader && manifest.loader.type) || 'vanilla').toLowerCase();
   progress(`Przygotowanie: ${LOADERS[type] || type}...`, 0);
   const loader = await ensureLoader(dir, manifest, java.java, log);
   return { manifest, java, loader };
 }
+
+// ---------- duże pliki dodatków w tle (np. teren Distant Horizons) ----------
+
+let seedJob = null;
+function startSeedDownloads(todo) {
+  if (seedJob || !todo.length) return;
+  seedJob = downloadInBackground(todo, log, (st) => send('seed', st))
+    .finally(() => {
+      seedJob = null;
+      if (quitWhenSeedDone) app.quit();
+    });
+}
+let quitWhenSeedDone = false;
 
 async function play() {
   if (running || busy) return;
@@ -127,6 +145,9 @@ async function play() {
   try {
     const { manifest, java, loader } = await prepare(dir);
     const server = serverFrom(manifest);
+    try {
+      if (ensureServerEntry(dir, server)) log(`Lista serwerów: ustawiono „${server.name}” (${server.host}:${server.port}).`);
+    } catch (e) { log(`Lista serwerów: ${e.message}`); }
 
     progress('Logowanie...', 0);
     const authorization = await accounts.getLaunchAuth();
@@ -162,7 +183,13 @@ async function play() {
     if (!proc) throw new Error('Nie udało się uruchomić gry – zobacz log.');
     setState('running');
 
-    if (s.afterLaunch === 'close') {
+    if (s.afterLaunch === 'close' && seedJob) {
+      // nie zamykamy w trakcie pobierania w tle – launcher zamknie się sam po pobraniu
+      proc.unref();
+      log('Launcher zamknie się po pobraniu dodatku w tle.');
+      quitWhenSeedDone = true;
+      win.minimize();
+    } else if (s.afterLaunch === 'close') {
       proc.unref();
       setTimeout(() => app.quit(), 3000);
     } else if (s.afterLaunch === 'minimize') {
