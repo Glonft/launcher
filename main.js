@@ -67,9 +67,25 @@ async function fetchManifest(dir, quiet = false) {
   }
 }
 
-/** Informacje dla ekranu głównego: serwer, newsy, dodatki. */
+/** Porównanie wersji x.y.z: <0, 0, >0. */
+function cmpVersion(a, b) {
+  const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = String(b).split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0);
+  return 0;
+}
+
+/** Wymagana nowsza wersja launchera (z manifestu) albo null. */
+function requiredLauncher(manifest) {
+  const min = manifest && manifest.minLauncher;
+  return min && cmpVersion(app.getVersion(), min) < 0 ? min : null;
+}
+
+/** Informacje dla ekranu głównego: serwer, newsy, dodatki, ogłoszenie. */
 function publicInfo(manifest) {
   return {
+    announcement: (manifest && manifest.announcement) || null,
+    requiredLauncher: requiredLauncher(manifest),
     server: serverFrom(manifest),
     news: (manifest && manifest.news) || [],
     optional: ((manifest && manifest.optional) || []).map((g) => ({
@@ -87,6 +103,10 @@ async function prepare(dir) {
   const manifest = await fetchManifest(dir);
   log(`Paczka: wersja ${manifest.version}`);
   send('info', publicInfo(manifest));
+  const need = requiredLauncher(manifest);
+  if (need) {
+    throw new Error(`Serwer wymaga launchera w wersji ${need} lub nowszej (masz ${app.getVersion()}). Zaktualizuj launcher – przycisk na górze okna albo strona serwera.`);
+  }
 
   const java = await ensureJava(dir, log, progress, manifest.java);
   progress('Synchronizacja modów...', 0);

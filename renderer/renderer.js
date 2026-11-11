@@ -34,6 +34,21 @@ function showInfo(info) {
     $('server-name').textContent = srv.name || 'Serwer';
     $('server-addr').textContent = srv.port === 25565 ? srv.host : `${srv.host}:${srv.port}`;
   }
+  if ('announcement' in info) {
+    const a = info.announcement;
+    const box = $('announcement');
+    box.classList.toggle('hidden', !(a && a.text));
+    box.classList.toggle('warn', !!(a && a.level === 'warn'));
+    box.textContent = (a && a.text) || '';
+  }
+  if ('requiredLauncher' in info) {
+    const box = $('launcher-outdated');
+    box.classList.toggle('hidden', !info.requiredLauncher);
+    box.textContent = info.requiredLauncher
+      ? `Ten serwer wymaga launchera ${info.requiredLauncher} lub nowszego. Zaktualizuj launcher, żeby zagrać.`
+      : '';
+    if (info.requiredLauncher) L.checkUpdate && L.checkUpdate();
+  }
   if (!Array.isArray(info.news)) return;
   const list = $('news-list');
   list.replaceChildren();

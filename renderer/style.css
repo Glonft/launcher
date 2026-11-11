@@ -129,3 +129,7 @@ summary { cursor: pointer; color: #8b8f9a; margin-bottom: 8px; }
 .cmd-box { margin-top: 10px; background: #0e1014; border: 1px solid #2f6fde55; border-radius: 8px; padding: 10px 12px; }
 .cmd-box code { display: block; margin: 6px 0 8px; font-size: 11px; color: #c9ccd4; word-break: break-all; user-select: all; }
 .cmd-box ol { margin: 4px 0 0; padding-left: 18px; }
+
+/* ogłoszenie z panelu admina */
+.announcement { margin: 0 22px 10px; padding: 9px 14px; border-radius: 8px; font-size: 13px; background: rgba(47, 111, 222, .15); border: 1px solid #2f6fde66; white-space: pre-wrap; }
+.announcement.warn { background: rgba(224, 161, 0, .14); border-color: #e0a10077; color: #ffe2a3; }
