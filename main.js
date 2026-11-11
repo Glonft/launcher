@@ -8,7 +8,7 @@ const config = require('./config.json');
 const { AccountStore } = require('./src/auth');
 const { syncModpack } = require('./src/sync');
 const { ensureJava } = require('./src/java');
-const { ensureNeoForge, getNeoForgeJvmArgs } = require('./src/neoforge');
+const { ensureLoader, LOADERS } = require('./src/loaders');
 const { SettingsStore, isEmptyDir, isInside } = require('./src/settings');
 const { pingServer } = require('./src/ping');
 const mineskin = require('./src/mineskin');
@@ -81,7 +81,7 @@ function publicInfo(manifest) {
 
 // ---------- gra ----------
 
-/** Java + mody + NeoForge. Zwraca wszystko, czego trzeba do startu. */
+/** Java + mody + silnik (vanilla/Fabric/NeoForge). Zwraca wszystko, czego trzeba do startu. */
 async function prepare(dir) {
   progress('Sprawdzanie paczki...', 0);
   const manifest = await fetchManifest(dir);
@@ -92,9 +92,10 @@ async function prepare(dir) {
   progress('Synchronizacja modów...', 0);
   await syncModpack(manifest, dir, log, progress, settings.get().addons || {});
 
-  progress('Przygotowanie NeoForge...', 0);
-  const versionId = await ensureNeoForge(dir, manifest.loader.version, java.java, log);
-  return { manifest, java, versionId };
+  const type = String((manifest.loader && manifest.loader.type) || 'vanilla').toLowerCase();
+  progress(`Przygotowanie: ${LOADERS[type] || type}...`, 0);
+  const loader = await ensureLoader(dir, manifest, java.java, log);
+  return { manifest, java, loader };
 }
 
 async function play() {
@@ -104,7 +105,7 @@ async function play() {
   const s = settings.get();
   const dir = s.gameDir;
   try {
-    const { manifest, java, versionId } = await prepare(dir);
+    const { manifest, java, loader } = await prepare(dir);
     const server = serverFrom(manifest);
 
     progress('Logowanie...', 0);
@@ -129,10 +130,12 @@ async function play() {
       root: dir,
       authorization,
       javaPath: java.javaw,
-      version: { number: manifest.minecraft, type: 'release', custom: versionId },
+      version: loader.versionId
+        ? { number: manifest.minecraft, type: 'release', custom: loader.versionId }
+        : { number: manifest.minecraft, type: 'release' },
       memory: { min: `${Math.round(s.minRamGB * 1024)}M`, max: `${Math.round(s.maxRamGB * 1024)}M` },
       window: s.fullscreen ? { fullscreen: true } : { width: s.width, height: s.height },
-      customArgs: [...getNeoForgeJvmArgs(dir, versionId), ...extraJvm],
+      customArgs: [...loader.jvmArgs, ...extraJvm],
       quickPlay: { type: 'multiplayer', identifier: `${server.host}:${server.port}` },
       overrides: { detached: s.afterLaunch === 'close' },
     });
@@ -152,14 +155,14 @@ async function play() {
   }
 }
 
-/** Naprawa: usuwa Javę, NeoForge, biblioteki i pliki tymczasowe, potem przygotowuje wszystko od nowa. */
+/** Naprawa: usuwa Javę, silnik, biblioteki i pliki tymczasowe, potem przygotowuje wszystko od nowa. */
 async function repair() {
   if (running || busy) throw new Error('Poczekaj, aż gra zostanie zamknięta.');
   busy = true;
   setState('busy');
   const dir = gameDir();
   try {
-    log('Naprawa: usuwanie Javy, NeoForge i bibliotek (światy, ustawienia i zasoby zostają)...');
+    log('Naprawa: usuwanie Javy, silnika i bibliotek (światy, ustawienia i zasoby zostają)...');
     for (const sub of ['runtime', 'versions', 'libraries', 'cache']) {
       await fs.promises.rm(path.join(dir, sub), { recursive: true, force: true });
     }
