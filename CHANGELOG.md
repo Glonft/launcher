@@ -8,6 +8,9 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.7.1
+- Aktualizacje launchera nie instalują się same – możesz je odłożyć na później
+
 ## 0.7.0
 - Ogłoszenia od administracji na górze launchera
 - Dodatki pokazują swój rozmiar, a duże dodatki pobierają się w tle – możesz grać w trakcie
