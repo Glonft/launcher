@@ -2,7 +2,14 @@
   "appName": "MelinaSMP",
   "gameDirName": ".melinasmp",
   "manifestUrl": "https://glonft.github.io/modpack/manifest.json",
-  "server": { "host": "pl20.icehost.pl", "port": 50094 },
-  "memory": { "min": "2G", "max": "6G" },
-  "microsoftClientId": null
+  "server": {
+    "host": "pl20.icehost.pl",
+    "port": 50094
+  },
+  "memory": {
+    "min": "2G",
+    "max": "6G"
+  },
+  "microsoftClientId": null,
+  "statsUrl": "https://melinasmp-api.duckdns.org/api/launcher/hello"
 }

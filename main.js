@@ -9,6 +9,8 @@ const { AccountStore } = require('./src/auth');
 const { syncModpack } = require('./src/sync');
 const { downloadInBackground } = require('./src/seed');
 const { ensureServerEntry } = require('./src/servers-dat');
+const { sendHello } = require('./src/stats');
+const { enabledAddons } = require('./src/sync');
 const { ensureJava } = require('./src/java');
 const { ensureLoader, LOADERS } = require('./src/loaders');
 const { SettingsStore, isEmptyDir, isInside } = require('./src/settings');
@@ -69,6 +71,15 @@ async function fetchManifest(dir, quiet = false) {
   }
 }
 
+/** Informacja dla adminów (zakładka Gracze w panelu). */
+function hello(manifest, force) {
+  try {
+    const m = manifest || cachedManifest();
+    const addons = m ? enabledAddons(m, settings.get().addons || {}).map((g) => g.id) : [];
+    sendHello(config.statsUrl, { account: accounts.state().active, version: app.getVersion(), addons }, { force });
+  } catch { /* bez znaczenia dla gracza */ }
+}
+
 /** Porównanie wersji x.y.z: <0, 0, >0. */
 function cmpVersion(a, b) {
   const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
@@ -107,6 +118,7 @@ async function prepare(dir) {
   const manifest = await fetchManifest(dir);
   log(`Paczka: wersja ${manifest.version}`);
   send('info', publicInfo(manifest));
+  hello(manifest, true);
   const need = requiredLauncher(manifest);
   if (need) {
     throw new Error(`Serwer wymaga launchera w wersji ${need} lub nowszej (masz ${app.getVersion()}). Zaktualizuj launcher – przycisk na górze okna albo strona serwera.`);
@@ -543,6 +555,7 @@ app.whenReady().then(() => {
   });
 
   initUpdater();
+  setTimeout(() => hello(null, false), 5000);
 });
 
 app.on('window-all-closed', () => app.quit());
