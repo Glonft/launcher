@@ -8,6 +8,10 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.8.1
+- „Moje mody” od razu pokazują listę – z kategoriami, sortowaniem, ikonami i przyciskiem „Pokaż więcej”
+- Shadery i paczki tekstur (resourcepacki) do dodania w „Moich modach” – launcher sam zaproponuje Iris
+
 ## 0.8.0
 - „Moje mody”: dodawaj własne mody z Modrinth albo z dysku – wyłączysz je i usuniesz jednym kliknięciem
 - Mody wymagające serwera są oznaczone, żebyś wiedział, które mogą nie zadziałać
