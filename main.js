@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Client } = require('minecraft-launcher-core');
@@ -70,6 +70,40 @@ async function fetchManifest(dir, quiet = false) {
     }
     throw new Error(`Nie można pobrać listy modów: ${e.message}`);
   }
+}
+
+// ---------- rozmiar interfejsu ----------
+
+const ZOOM_STEPS = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+let baseContentSize = [980, 600];
+
+/** „Automatycznie”: większy interfejs na monitorach 1440p / 4K (z uwzględnieniem skalowania Windows). */
+function autoZoom() {
+  try {
+    const d = win ? screen.getDisplayMatching(win.getBounds()) : screen.getPrimaryDisplay();
+    const physical = d.size.height * d.scaleFactor;
+    const desired = physical >= 2000 ? 1.75 : physical >= 1400 ? 1.25 : 1;
+    return Math.max(1, Math.round((desired / d.scaleFactor) * 20) / 20);
+  } catch { return 1; }
+}
+
+function currentZoom() {
+  const z = settings.get().uiScale;
+  return typeof z === 'number' ? z : autoZoom();
+}
+
+function applyZoom() {
+  if (!win || win.isDestroyed()) return;
+  let f = currentZoom();
+  try {
+    // nie większe niż ekran
+    const area = screen.getDisplayMatching(win.getBounds()).workAreaSize;
+    const fit = Math.min((area.width - 40) / baseContentSize[0], (area.height - 60) / baseContentSize[1]);
+    if (f > fit) f = Math.max(0.8, Math.floor(fit * 20) / 20);
+  } catch { /* zostaje f */ }
+  win.webContents.setZoomFactor(f);
+  win.setContentSize(Math.round(baseContentSize[0] * f), Math.round(baseContentSize[1] * f));
+  win.center();
 }
 
 /** Informacja dla adminów (zakładka Gracze w panelu). */
@@ -557,7 +591,9 @@ app.whenReady().then(() => {
   }));
   ipcMain.handle('settings:set', (_e, input) => {
     const { gameDir: _ignored, ...rest } = input || {}; // folder zmienia się osobno
-    return settings.set(rest);
+    const out = settings.set(rest);
+    applyZoom();
+    return out;
   });
   ipcMain.handle('settings:pickFolder', async () => {
     const r = await dialog.showOpenDialog(win, {
@@ -600,7 +636,24 @@ app.whenReady().then(() => {
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
   });
+  baseContentSize = win.getContentSize();
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.webContents.on('did-finish-load', applyZoom);
+  // Ctrl + / Ctrl - / Ctrl 0 – rozmiar interfejsu (zapamiętywany)
+  win.webContents.on('before-input-event', (e, input) => {
+    if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return;
+    const k = input.key;
+    if (!['+', '=', '-', '_', '0'].includes(k)) return;
+    e.preventDefault();
+    const cur = currentZoom();
+    let next;
+    if (k === '0') next = 'auto';
+    else if (k === '-' || k === '_') next = ZOOM_STEPS.slice().reverse().find((z) => z < cur - 0.001) || ZOOM_STEPS[0];
+    else next = ZOOM_STEPS.find((z) => z > cur + 0.001) || ZOOM_STEPS[ZOOM_STEPS.length - 1];
+    settings.set({ uiScale: next });
+    applyZoom();
+    send('zoom', { uiScale: settings.get().uiScale, factor: currentZoom() });
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) shell.openExternal(url);
     return { action: 'deny' };

@@ -455,6 +455,8 @@ async function openSettings() {
   $('fullscreen').checked = s.fullscreen;
   $('win-w').disabled = $('win-h').disabled = s.fullscreen;
   $('after-launch').value = s.afterLaunch;
+  $('ui-scale').value = s.uiScale === 'auto' || s.uiScale == null ? 'auto' : String(s.uiScale);
+  if (!$('ui-scale').value) $('ui-scale').value = 'auto';
   $('game-dir').value = s.gameDir;
   $('jvm-args').value = s.jvmArgs;
   renderAddons(optional, s.addons || {});
@@ -462,6 +464,31 @@ async function openSettings() {
   $('settings-error').textContent = '';
   hideDirChange();
   $('settings').classList.remove('hidden');
+  settingsSnapshot = JSON.stringify(collectSettings());
+}
+
+let settingsSnapshot = null;
+function collectSettings() {
+  const addons = {};
+  for (const cb of document.querySelectorAll('[data-addon]')) addons[cb.dataset.addon] = cb.checked;
+  return {
+    maxRamGB: Number($('ram-max').value),
+    minRamGB: Number($('ram-min').value),
+    width: Number($('win-w').value),
+    height: Number($('win-h').value),
+    fullscreen: $('fullscreen').checked,
+    afterLaunch: $('after-launch').value,
+    jvmArgs: $('jvm-args').value,
+    uiScale: $('ui-scale').value === 'auto' ? 'auto' : Number($('ui-scale').value),
+    addons,
+  };
+}
+/** Zamknięcie ustawień kliknięciem obok / Esc / ✕ – pyta o niezapisane zmiany. */
+function closeSettingsSafely() {
+  if (settingsSnapshot && JSON.stringify(collectSettings()) !== settingsSnapshot) {
+    if (confirm('Masz niezapisane zmiany w ustawieniach. Zapisać je?\n\nOK – zapisz, Anuluj – odrzuć zmiany.')) { $('btn-settings-save').click(); return; }
+  }
+  $('settings').classList.add('hidden');
 }
 
 function hideDirChange() {
@@ -476,7 +503,7 @@ function showDirChange(dir) {
 }
 
 $('btn-settings').onclick = openSettings;
-$('btn-settings-cancel').onclick = () => $('settings').classList.add('hidden');
+$('btn-settings-cancel').onclick = () => { settingsSnapshot = null; $('settings').classList.add('hidden'); };
 $('ram-max').oninput = updateRamLabels;
 $('ram-min').oninput = updateRamLabels;
 $('fullscreen').onchange = () => { $('win-w').disabled = $('win-h').disabled = $('fullscreen').checked; };
@@ -513,19 +540,9 @@ $('btn-repair').onclick = async () => {
 
 $('btn-settings-save').onclick = async () => {
   $('settings-error').textContent = '';
-  const addons = {};
-  for (const cb of document.querySelectorAll('[data-addon]')) addons[cb.dataset.addon] = cb.checked;
   try {
-    await L.saveSettings({
-      maxRamGB: Number($('ram-max').value),
-      minRamGB: Number($('ram-min').value),
-      width: Number($('win-w').value),
-      height: Number($('win-h').value),
-      fullscreen: $('fullscreen').checked,
-      afterLaunch: $('after-launch').value,
-      jvmArgs: $('jvm-args').value,
-      addons,
-    });
+    await L.saveSettings(collectSettings());
+    settingsSnapshot = null;
     $('settings').classList.add('hidden');
     addLog('Zapisano ustawienia.');
   } catch (e) {
@@ -575,9 +592,10 @@ init();
 const fmtDl = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace('.', ',')} mln` : n >= 1e3 ? `${Math.round(n / 1e3)} tys.` : String(n));
 let myMods = [];
 
-function mmItem(icon, title, sub, actions, cls = '') {
+function mmItem(icon, title, sub, actions, cls = '', href = null) {
+  const pic = icon ? el('img', { src: icon, alt: '' }) : el('div', { className: 'mm-noicon' });
   return el('div', { className: `mm-item ${cls}` },
-    icon ? el('img', { src: icon, alt: '' }) : el('div', { className: 'mm-noicon' }),
+    href ? el('a', { href, target: '_blank', title: 'Otwórz stronę na Modrinth' }, pic) : pic,
     el('div', {}, title, el('div', { className: 'mm-sub', textContent: sub })),
     el('div', { className: 'mm-actions' }, ...actions));
 }
@@ -604,7 +622,7 @@ async function refreshMyMods() {
   $('mymods-list-title').textContent = MM_TEXT[mm.kind].list;
   if (!mine.length) { box.replaceChildren(el('p', { className: 'hint', textContent: MM_TEXT[mm.kind].empty })); return; }
   box.replaceChildren(...mine.map((m) => {
-    const title = el('div', { className: 'mm-title', textContent: m.name });
+    const title = el('div', { className: 'mm-title' }, m.projectId ? mrLink(m.projectId, m.name) : m.name);
     if (m.source === 'dysk') title.append(el('span', { className: 'mm-tag disk', textContent: 'z dysku' }));
     if (m.needsServer) title.append(el('span', { className: 'mm-tag disk', textContent: 'wymaga serwera' }));
     if (m.blocked) title.append(el('span', { className: 'mm-tag blocked', textContent: `zablokowany przez administrację${m.blocked !== 'zablokowany' ? `: ${m.blocked}` : ''}` }));
@@ -613,7 +631,7 @@ async function refreshMyMods() {
     return mmItem(m.icon, title, sub, [
       m.blocked ? null : mmBtn(m.enabled ? 'Wyłącz' : 'Włącz', 'small-btn', async () => { await L.myModsToggle(m.id, !m.enabled); await refreshMyMods(); }),
       mmBtn('Usuń', 'small-btn', async () => { await L.myModsRemove(m.id); await refreshMyMods(); }),
-    ].filter(Boolean), m.enabled && !m.blocked ? '' : 'off');
+    ].filter(Boolean), m.enabled && !m.blocked ? '' : 'off', m.projectId ? `https://modrinth.com/project/${encodeURIComponent(m.projectId)}` : null);
   }));
 }
 
@@ -657,8 +675,10 @@ function renderCats() {
   }));
 }
 
+const mrLink = (id, text) => el('a', { href: `https://modrinth.com/project/${encodeURIComponent(id)}`, target: '_blank', className: 'mm-link', textContent: text, title: 'Otwórz stronę na Modrinth' });
+
 function modResult(h, have) {
-  const t = el('div', { className: 'mm-title', textContent: h.title });
+  const t = el('div', { className: 'mm-title' }, mrLink(h.id, h.title));
   if (h.needsServer || h.serverOnly) t.append(el('span', { className: 'mm-tag disk', textContent: h.serverOnly ? 'tylko serwer' : 'wymaga serwera' }));
   return mmItem(h.icon, t, `${h.description} · ${fmtDl(h.downloads)} pobrań`,
     [have.has(h.id) ? el('span', { className: 'mm-tag', textContent: 'dodany' }) : mmBtn('Dodaj', 'primary-sm', async () => {
@@ -678,7 +698,7 @@ function modResult(h, have) {
           item.querySelector('.mm-actions').replaceChildren(el('span', { className: 'mm-tag', textContent: 'dodany' }));
         }
       }
-    })]);
+    })], '', `https://modrinth.com/project/${encodeURIComponent(h.id)}`);
 }
 
 /** Szukanie / przeglądanie; more = dociągnij kolejną stronę. */
@@ -760,3 +780,33 @@ $('btn-play-clean').onclick = (e) => {
   appState = 'preparing'; updatePlayButton(); L.play({ withoutMine: true });
 };
 refreshMyMods().catch(() => {});
+
+// ---------- zamykanie okien: klik obok, Esc, ✕ ----------
+
+const OVERLAY_CLOSE = {
+  'add-account': () => $('btn-add-cancel').click(),
+  'mymods-dialog': () => $('btn-mymods-close').click(),
+  'skin-dialog': () => $('btn-skin-close').click(),
+  changes: () => $('btn-changes-close').click(),
+  settings: () => closeSettingsSafely(),
+};
+for (const [id, close] of Object.entries(OVERLAY_CLOSE)) {
+  const ov = $(id);
+  if (!ov) continue;
+  let downOnOverlay = false;
+  // tylko gdy kliknięcie zaczęło i skończyło się poza oknem (żeby zaznaczanie tekstu nie zamykało)
+  ov.addEventListener('mousedown', (e) => { downOnOverlay = e.target === ov; });
+  ov.addEventListener('click', (e) => { if (e.target === ov && downOnOverlay) close(); });
+  const panel = ov.querySelector('.panel');
+  if (panel) {
+    const x = el('button', { className: 'panel-x', textContent: '✕', title: 'Zamknij (Esc)' });
+    x.onclick = close;
+    panel.prepend(x);
+  }
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const open = Object.keys(OVERLAY_CLOSE).map((id) => $(id)).filter((o) => o && !o.classList.contains('hidden'));
+  const top = open[open.length - 1];
+  if (top) { e.preventDefault(); OVERLAY_CLOSE[top.id](); }
+});

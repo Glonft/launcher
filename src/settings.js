@@ -41,6 +41,11 @@ class SettingsStore {
     s.fullscreen = !!s.fullscreen;
 
     if (!['minimize', 'keep', 'close'].includes(s.afterLaunch)) s.afterLaunch = 'minimize';
+    // rozmiar interfejsu: 'auto' albo liczba 0.8–2
+    if (s.uiScale !== 'auto') {
+      const z = Number(s.uiScale);
+      s.uiScale = z >= 0.8 && z <= 2 ? Math.round(z * 100) / 100 : 'auto';
+    }
     s.jvmArgs = String(s.jvmArgs || '').trim();
 
     const addons = {};
