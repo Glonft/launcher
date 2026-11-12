@@ -604,6 +604,7 @@ async function refreshMyMods() {
   box.replaceChildren(...myMods.map((m) => {
     const title = el('div', { className: 'mm-title', textContent: m.name });
     if (m.source === 'dysk') title.append(el('span', { className: 'mm-tag disk', textContent: 'z dysku' }));
+    if (m.needsServer) title.append(el('span', { className: 'mm-tag disk', textContent: 'wymaga serwera' }));
     if (!m.enabled) title.append(el('span', { className: 'mm-tag', textContent: 'wyłączony' }));
     const sub = [m.version, (m.requiredBy || []).length ? `wymagany przez: ${m.requiredBy.map((r) => (myMods.find((x) => x.id === r) || {}).name || r).join(', ')}` : ''].filter(Boolean).join(' · ');
     return mmItem(m.icon, title, sub, [
@@ -631,9 +632,16 @@ async function searchMyMods() {
     const hits = await L.myModsSearch(q);
     const have = new Set(myMods.map((m) => m.projectId));
     box.replaceChildren(...(hits.length ? hits.map((h) => mmItem(h.icon,
-      el('div', { className: 'mm-title', textContent: h.title }),
+      (() => {
+        const t = el('div', { className: 'mm-title', textContent: h.title });
+        if (h.needsServer || h.serverOnly) t.append(el('span', { className: 'mm-tag disk', textContent: h.serverOnly ? 'tylko serwer' : 'wymaga serwera' }));
+        return t;
+      })(),
       `${h.description} · ${fmtDl(h.downloads)} pobrań`,
       [have.has(h.id) ? el('span', { className: 'mm-tag', textContent: 'dodany' }) : mmBtn('Dodaj', 'primary-sm', async () => {
+        if ((h.needsServer || h.serverOnly) && !confirm(h.serverOnly
+          ? `${h.title} działa tylko na serwerze – u Ciebie nic nie zmieni. Dodać mimo to?`
+          : `${h.title} musi być też na serwerze. Bez tego możesz nie wejść na serwer (wtedy użyj „Uruchom bez moich modów”). Dodać mimo to?`)) return;
         const added = await L.myModsAddModrinth(h.id);
         $('mymods-msg').textContent = added.length > 1 ? `Dodano: ${added.join(', ')}` : `Dodano: ${added[0] || h.title}`;
         await refreshMyMods();

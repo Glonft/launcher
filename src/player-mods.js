@@ -44,17 +44,14 @@ class PlayerMods {
 
   // ---------- Modrinth ----------
 
-  /** Szukanie tylko modów działających u gracza (bez wymagania moda na serwerze). */
+  /** Szukanie modów pod wersję gry i silnik (wszystkie – także wymagające serwera, z oznaczeniem). */
   static async search(query, mc, loader) {
-    const facets = JSON.stringify([
-      [`categories:${loader}`], [`versions:${mc}`], ['project_type:mod'],
-      ['client_side:required', 'client_side:optional'],
-      ['server_side:optional', 'server_side:unsupported'],
-    ]);
+    const facets = JSON.stringify([[`categories:${loader}`], [`versions:${mc}`], ['project_type:mod']]);
     const d = await getJson(`${API}/search?limit=20&index=relevance&query=${encodeURIComponent(query)}&facets=${encodeURIComponent(facets)}`);
     return d.hits.map((h) => ({
       id: h.project_id, title: h.title, description: h.description, icon: h.icon_url,
       downloads: h.downloads, author: h.author,
+      needsServer: h.server_side === 'required', serverOnly: h.client_side === 'unsupported',
     }));
   }
 
@@ -73,9 +70,6 @@ class PlayerMods {
       getJson(`${API}/project/${encodeURIComponent(projectId)}`),
       getJson(`${API}/project/${encodeURIComponent(projectId)}/version?loaders=${encodeURIComponent(JSON.stringify([loader]))}&game_versions=${encodeURIComponent(JSON.stringify([mc]))}`),
     ]);
-    if (project.server_side === 'required' || project.client_side === 'unsupported') {
-      throw new Error(`${project.title} wymaga moda na serwerze – nie da się go dodać tylko u siebie.`);
-    }
     const v = versions.find((x) => x.version_type === 'release') || versions[0];
     if (!v) throw new Error(`${project.title} nie ma wersji na Minecraft ${mc} (${loader}).`);
     const file = v.files.find((f) => f.primary) || v.files[0];
@@ -90,6 +84,7 @@ class PlayerMods {
       id: `mr:${projectId}`, projectId, source: 'modrinth', name: project.title, version: v.version_number,
       file: name, sha1: sha1(buf), modId, enabled: true, requiredBy: requiredBy ? [requiredBy] : [],
       icon: project.icon_url || null,
+      needsServer: project.server_side === 'required' || project.client_side === 'unsupported',
     };
     const fresh = this.list().filter((m) => m.file !== name);
     fresh.push(entry);
