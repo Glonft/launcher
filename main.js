@@ -10,7 +10,7 @@ const { syncModpack } = require('./src/sync');
 const { downloadInBackground } = require('./src/seed');
 const { ensureServerEntry } = require('./src/servers-dat');
 const { sendHello } = require('./src/stats');
-const { PlayerMods, packModIds } = require('./src/player-mods');
+const { PlayerMods, packModIds, IRIS } = require('./src/player-mods');
 const { enabledAddons } = require('./src/sync');
 const { ensureJava } = require('./src/java');
 const { ensureLoader, LOADERS } = require('./src/loaders');
@@ -77,7 +77,7 @@ function hello(manifest, force) {
   try {
     const m = manifest || cachedManifest();
     const addons = m ? enabledAddons(m, settings.get().addons || {}).map((g) => g.id) : [];
-    const mods = new PlayerMods(gameDir()).list().filter((x) => x.enabled).slice(0, 50).map((x) => ({ name: x.name, source: x.source }));
+    const mods = new PlayerMods(gameDir(), (m && m.blockedMods) || []).list().filter((x) => x.enabled && !x.blocked).slice(0, 50).map((x) => ({ name: x.name, source: x.source, kind: x.kind }));
     sendHello(config.statsUrl, { account: accounts.state().active, version: app.getVersion(), addons, mods }, { force });
   } catch { /* bez znaczenia dla gracza */ }
 }
@@ -163,7 +163,7 @@ async function play(opts = {}) {
       if (ensureServerEntry(dir, server)) log(`Lista serwerów: ustawiono „${server.name}” (${server.host}:${server.port}).`);
     } catch (e) { log(`Lista serwerów: ${e.message}`); }
     try {
-      new PlayerMods(dir).install(packModIds(dir, manifest), !!opts.withoutMine, log);
+      new PlayerMods(dir, manifest.blockedMods || []).install(packModIds(dir, manifest), !!opts.withoutMine, log);
     } catch (e) { log(`Moje mody: ${e.message}`); }
 
     progress('Logowanie...', 0);
@@ -505,23 +505,29 @@ app.whenReady().then(() => {
     if (loader === 'vanilla') throw new Error('Serwer działa bez modów (vanilla) – własnych modów nie da się dodać.');
     return { mc: m.minecraft, loader };
   };
-  const pm = () => new PlayerMods(gameDir());
+  const blockedList = () => (cachedManifest() || {}).blockedMods || [];
+  const pm = () => new PlayerMods(gameDir(), blockedList());
   ipcMain.handle('mymods:list', () => {
     const m = cachedManifest();
     return { list: pm().list(), mc: m && m.minecraft, loader: m && m.loader && m.loader.type };
   });
-  ipcMain.handle('mymods:search', (_e, q, opts) => { const t = pmTarget(); return PlayerMods.search(String(q || ''), t.mc, t.loader, opts || {}); });
-  ipcMain.handle('mymods:addModrinth', async (_e, id) => {
+  ipcMain.handle('mymods:search', (_e, q, opts) => { const t = pmTarget(); return PlayerMods.search(String(q || ''), t.mc, t.loader, opts || {}, blockedList()); });
+  ipcMain.handle('mymods:needIris', () => {
+    const m = cachedManifest();
+    return !!m && !pm().hasIris(packModIds(gameDir(), m));
+  });
+  ipcMain.handle('mymods:addModrinth', async (_e, id, kind) => {
     if (running) throw new Error('Zamknij grę, zanim zmienisz mody.');
     const t = pmTarget();
-    return pm().addModrinth(String(id), t.mc, t.loader);
+    const k = ['mod', 'shader', 'resourcepack'].includes(kind) ? kind : 'mod';
+    return pm().addModrinth(k === 'mod' && id === 'iris' ? IRIS : String(id), t.mc, t.loader, k);
   });
   ipcMain.handle('mymods:addFile', async (_e, filePath) => {
     if (running) throw new Error('Zamknij grę, zanim zmienisz mody.');
     const t = pmTarget();
     let p = filePath;
     if (!p) {
-      const r = await dialog.showOpenDialog(win, { title: 'Wybierz mod (.jar)', filters: [{ name: 'Mody', extensions: ['jar'] }], properties: ['openFile', 'multiSelections'] });
+      const r = await dialog.showOpenDialog(win, { title: 'Wybierz mod (.jar)', filters: [{ name: 'Mody, shadery, paczki tekstur', extensions: ['jar', 'zip'] }], properties: ['openFile', 'multiSelections'] });
       if (r.canceled) return [];
       return r.filePaths.map((f) => { try { return { ok: pm().addFile(f, t.loader).name }; } catch (e) { return { error: `${path.basename(f)}: ${e.message}` }; } });
     }

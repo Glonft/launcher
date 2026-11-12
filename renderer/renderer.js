@@ -596,21 +596,24 @@ function mmBtn(text, cls, fn) {
 async function refreshMyMods() {
   const d = await L.myMods();
   myMods = d.list;
-  const on = myMods.filter((m) => m.enabled).length;
+  const on = myMods.filter((m) => m.enabled && !m.blocked).length;
   $('mymods-count').textContent = myMods.length ? `(${on})` : '';
-  $('btn-play-clean').classList.toggle('hidden', !on);
+  $('btn-play-clean').classList.toggle('hidden', !myMods.some((m) => m.enabled && !m.blocked && (m.kind || 'mod') === 'mod'));
   const box = $('mymods-list');
-  if (!myMods.length) { box.replaceChildren(el('p', { className: 'hint', textContent: 'Nie masz jeszcze własnych modów.' })); return; }
-  box.replaceChildren(...myMods.map((m) => {
+  const mine = myMods.filter((m) => (m.kind || 'mod') === mm.kind);
+  $('mymods-list-title').textContent = MM_TEXT[mm.kind].list;
+  if (!mine.length) { box.replaceChildren(el('p', { className: 'hint', textContent: MM_TEXT[mm.kind].empty })); return; }
+  box.replaceChildren(...mine.map((m) => {
     const title = el('div', { className: 'mm-title', textContent: m.name });
     if (m.source === 'dysk') title.append(el('span', { className: 'mm-tag disk', textContent: 'z dysku' }));
     if (m.needsServer) title.append(el('span', { className: 'mm-tag disk', textContent: 'wymaga serwera' }));
-    if (!m.enabled) title.append(el('span', { className: 'mm-tag', textContent: 'wyłączony' }));
+    if (m.blocked) title.append(el('span', { className: 'mm-tag blocked', textContent: `zablokowany przez administrację${m.blocked !== 'zablokowany' ? `: ${m.blocked}` : ''}` }));
+    else if (!m.enabled) title.append(el('span', { className: 'mm-tag', textContent: 'wyłączony' }));
     const sub = [m.version, (m.requiredBy || []).length ? `wymagany przez: ${m.requiredBy.map((r) => (myMods.find((x) => x.id === r) || {}).name || r).join(', ')}` : ''].filter(Boolean).join(' · ');
     return mmItem(m.icon, title, sub, [
-      mmBtn(m.enabled ? 'Wyłącz' : 'Włącz', 'small-btn', async () => { await L.myModsToggle(m.id, !m.enabled); await refreshMyMods(); }),
+      m.blocked ? null : mmBtn(m.enabled ? 'Wyłącz' : 'Włącz', 'small-btn', async () => { await L.myModsToggle(m.id, !m.enabled); await refreshMyMods(); }),
       mmBtn('Usuń', 'small-btn', async () => { await L.myModsRemove(m.id); await refreshMyMods(); }),
-    ], m.enabled ? '' : 'off');
+    ].filter(Boolean), m.enabled && !m.blocked ? '' : 'off');
   }));
 }
 
@@ -619,20 +622,35 @@ async function openMyMods() {
   $('mymods-updates').replaceChildren();
   $('mymods-dialog').classList.remove('hidden');
   await refreshMyMods().catch((e) => { $('mymods-msg').textContent = cleanErr(e); });
-  renderCats();
-  searchMyMods();
+  setMmKind(mm.kind);
   $('mymods-q').focus();
 }
 
-const MM_CATS = [
-  ['', 'Wszystkie'], ['optimization', 'Wydajność'], ['utility', 'Przydatne'], ['decoration', 'Dekoracje'],
-  ['equipment', 'Wyposażenie'], ['technology', 'Technologia'], ['magic', 'Magia'], ['adventure', 'Przygoda'],
-  ['worldgen', 'Świat'], ['mobs', 'Moby'], ['food', 'Jedzenie'], ['storage', 'Przechowywanie'],
-];
-const mm = { cat: '', offset: 0, total: 0, seq: 0 };
+const MM_CATS = {
+  mod: [
+    ['', 'Wszystkie'], ['optimization', 'Wydajność'], ['utility', 'Przydatne'], ['decoration', 'Dekoracje'],
+    ['equipment', 'Wyposażenie'], ['technology', 'Technologia'], ['magic', 'Magia'], ['adventure', 'Przygoda'],
+    ['worldgen', 'Świat'], ['mobs', 'Moby'], ['food', 'Jedzenie'], ['storage', 'Przechowywanie'],
+  ],
+  shader: [
+    ['', 'Wszystkie'], ['vanilla-like', 'Jak w grze'], ['semi-realistic', 'Półrealistyczne'], ['realistic', 'Realistyczne'],
+    ['fantasy', 'Fantasy'], ['cartoon', 'Kreskówkowe'], ['potato', 'Bardzo słaby PC'], ['low', 'Słaby PC'],
+    ['medium', 'Średni PC'], ['high', 'Mocny PC'],
+  ],
+  resourcepack: [
+    ['', 'Wszystkie'], ['16x', '16x'], ['32x', '32x'], ['64x', '64x+'], ['vanilla-like', 'Jak w grze'], ['simplistic', 'Proste'],
+    ['realistic', 'Realistyczne'], ['themed', 'Tematyczne'], ['gui', 'Interfejs'], ['audio', 'Dźwięki'], ['fonts', 'Czcionki'],
+  ],
+};
+const MM_TEXT = {
+  mod: { hint: 'Mody tylko dla Ciebie, np. minimapa, zoom albo lepsze dźwięki. Mody oznaczone „wymaga serwera” muszą być też na serwerze – bez tego możesz nie wejść do gry.', list: 'Twoje mody', q: 'Szukaj w Modrinth, np. minimap, zoom, sound…', empty: 'Nie masz jeszcze własnych modów.' },
+  shader: { hint: 'Shadery zmieniają oświetlenie, cienie i wodę. Potrzebują moda Iris – launcher zaproponuje go przy pierwszym shaderze. Włączasz je w grze: Opcje → Ustawienia grafiki → Paczki shaderów.', list: 'Twoje shadery', q: 'Szukaj shaderów, np. Complementary, BSL…', empty: 'Nie masz jeszcze shaderów.' },
+  resourcepack: { hint: 'Paczki tekstur zmieniają wygląd bloków, przedmiotów i interfejsu. Włączasz je w grze: Opcje → Paczki zasobów.', list: 'Twoje paczki tekstur', q: 'Szukaj paczek tekstur, np. Faithful, Fresh Animations…', empty: 'Nie masz jeszcze paczek tekstur.' },
+};
+const mm = { kind: 'mod', cat: '', offset: 0, total: 0, seq: 0 };
 
 function renderCats() {
-  $('mymods-cats').replaceChildren(...MM_CATS.map(([id, label]) => {
+  $('mymods-cats').replaceChildren(...MM_CATS[mm.kind].map(([id, label]) => {
     const b = el('button', { className: `mm-cat${mm.cat === id ? ' active' : ''}`, textContent: label });
     b.onclick = () => { mm.cat = id; renderCats(); searchMyMods(); };
     return b;
@@ -644,10 +662,14 @@ function modResult(h, have) {
   if (h.needsServer || h.serverOnly) t.append(el('span', { className: 'mm-tag disk', textContent: h.serverOnly ? 'tylko serwer' : 'wymaga serwera' }));
   return mmItem(h.icon, t, `${h.description} · ${fmtDl(h.downloads)} pobrań`,
     [have.has(h.id) ? el('span', { className: 'mm-tag', textContent: 'dodany' }) : mmBtn('Dodaj', 'primary-sm', async () => {
+      if (h.kind === 'shader' && await L.myModsNeedIris()) {
+        if (!confirm('Shadery działają tylko z modem Iris. Dodać Iris do Twoich modów?')) return;
+        await L.myModsAddModrinth('iris', 'mod');
+      }
       if ((h.needsServer || h.serverOnly) && !confirm(h.serverOnly
         ? `${h.title} działa tylko na serwerze – u Ciebie nic nie zmieni. Dodać mimo to?`
         : `${h.title} musi być też na serwerze. Bez tego możesz nie wejść na serwer (wtedy użyj „Uruchom bez moich modów”). Dodać mimo to?`)) return;
-      const added = await L.myModsAddModrinth(h.id);
+      const added = await L.myModsAddModrinth(h.id, h.kind);
       $('mymods-msg').textContent = added.length > 1 ? `Dodano: ${added.join(', ')}` : `Dodano: ${added[0] || h.title}`;
       await refreshMyMods();
       const st = new Set(myMods.map((m) => m.projectId));
@@ -669,7 +691,7 @@ async function searchMyMods(more = false) {
   $('btn-mymods-more').classList.add('hidden');
   try {
     const sort = q && !more && $('mymods-sort').dataset.touched !== '1' ? 'relevance' : $('mymods-sort').value;
-    const r = await L.myModsSearch(q, { category: mm.cat, sort, offset: mm.offset });
+    const r = await L.myModsSearch(q, { kind: mm.kind, category: mm.cat, sort, offset: mm.offset });
     if (seq !== mm.seq) return; // w międzyczasie kliknięto coś innego
     mm.total = r.total;
     mm.offset += r.hits.length;
@@ -695,6 +717,18 @@ async function addMyModFiles(paths) {
 }
 
 $('btn-mymods').onclick = openMyMods;
+function setMmKind(kind) {
+  mm.kind = kind;
+  mm.cat = '';
+  for (const b of $('mymods-tabs').querySelectorAll('button')) b.classList.toggle('active', b.dataset.kind === kind);
+  $('mymods-hint').textContent = MM_TEXT[kind].hint;
+  $('mymods-q').placeholder = MM_TEXT[kind].q;
+  $('mymods-q').value = '';
+  renderCats();
+  refreshMyMods().catch(() => {});
+  searchMyMods();
+}
+for (const b of $('mymods-tabs').querySelectorAll('button')) b.onclick = () => setMmKind(b.dataset.kind);
 $('btn-mymods-close').onclick = () => $('mymods-dialog').classList.add('hidden');
 $('btn-mymods-search').onclick = () => searchMyMods();
 $('mymods-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchMyMods(); });

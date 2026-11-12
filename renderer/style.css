@@ -162,3 +162,7 @@ summary { cursor: pointer; color: #8b8f9a; margin-bottom: 8px; }
 .mm-cat.active { background: #3fa34d33; border-color: #3fa34d; color: #fff; }
 #mymods-sort { width: auto; font-size: 12px; padding: 5px 8px; }
 .mm-scroll { max-height: 300px; overflow: auto; padding-right: 4px; }
+.mm-tabs { display: flex; gap: 4px; margin: 4px 0 8px; border-bottom: 1px solid #2a2e37; }
+.mm-tabs button { background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 12px; color: #8b8f9a; font-size: 13px; }
+.mm-tabs button.active { color: #fff; border-bottom-color: #3fa34d; }
+.mm-tag.blocked { background: #a83a3a33; color: #ff9b9b; }

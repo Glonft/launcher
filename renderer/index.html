@@ -97,7 +97,12 @@
   <div id="mymods-dialog" class="overlay hidden">
     <div class="panel mymods-panel">
       <h2>Moje mody</h2>
-      <p class="hint">Mody tylko dla Ciebie, np. minimapa, zoom albo lepsze dźwięki. Mody oznaczone „wymaga serwera” muszą być też na serwerze – bez tego możesz nie wejść do gry.</p>
+      <div id="mymods-tabs" class="mm-tabs">
+        <button data-kind="mod" class="active">Mody</button>
+        <button data-kind="shader">Shadery</button>
+        <button data-kind="resourcepack">Paczki tekstur</button>
+      </div>
+      <p id="mymods-hint" class="hint">Mody tylko dla Ciebie, np. minimapa, zoom albo lepsze dźwięki. Mody oznaczone „wymaga serwera” muszą być też na serwerze – bez tego możesz nie wejść do gry.</p>
       <div class="row">
         <input id="mymods-q" placeholder="Szukaj w Modrinth, np. minimap, zoom, sound…">
         <button id="btn-mymods-search" class="primary-sm">Szukaj</button>
@@ -112,9 +117,9 @@
       </div>
       <div id="mymods-results" class="mymods-results mm-scroll"></div>
       <div class="center-text"><button id="btn-mymods-more" class="small-btn hidden">Pokaż więcej</button></div>
-      <div id="mymods-drop" class="mymods-drop">Przeciągnij tutaj plik .jar albo <a href="#" id="btn-mymods-file">wybierz z dysku</a></div>
+      <div id="mymods-drop" class="mymods-drop">Przeciągnij tutaj plik .jar (mod) albo .zip (shader, paczka tekstur) albo <a href="#" id="btn-mymods-file">wybierz z dysku</a></div>
       <div class="row between">
-        <h3>Twoje mody</h3>
+        <h3 id="mymods-list-title">Twoje mody</h3>
         <button id="btn-mymods-updates" class="small-btn">Sprawdź aktualizacje</button>
       </div>
       <div id="mymods-updates"></div>
