@@ -8,6 +8,11 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.8.2
+- Rozmiar interfejsu do wyboru w Ustawieniach – na dużych monitorach launcher sam się powiększa (skróty Ctrl +, Ctrl −, Ctrl 0)
+- Okna zamkniesz kliknięciem obok, klawiszem Esc albo przyciskiem ✕
+- Kliknięcie nazwy lub ikony moda otwiera jego stronę na Modrinth
+
 ## 0.8.1
 - „Moje mody” od razu pokazują listę – z kategoriami, sortowaniem, ikonami i przyciskiem „Pokaż więcej”
 - Shadery i paczki tekstur (resourcepacki) do dodania w „Moich modach” – launcher sam zaproponuje Iris
