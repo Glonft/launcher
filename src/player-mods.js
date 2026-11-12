@@ -44,15 +44,24 @@ class PlayerMods {
 
   // ---------- Modrinth ----------
 
-  /** Szukanie modów pod wersję gry i silnik (wszystkie – także wymagające serwera, z oznaczeniem). */
-  static async search(query, mc, loader) {
-    const facets = JSON.stringify([[`categories:${loader}`], [`versions:${mc}`], ['project_type:mod']]);
-    const d = await getJson(`${API}/search?limit=20&index=relevance&query=${encodeURIComponent(query)}&facets=${encodeURIComponent(facets)}`);
-    return d.hits.map((h) => ({
-      id: h.project_id, title: h.title, description: h.description, icon: h.icon_url,
-      downloads: h.downloads, author: h.author,
-      needsServer: h.server_side === 'required', serverOnly: h.client_side === 'unsupported',
-    }));
+  /**
+   * Szukanie / przeglądanie modów pod wersję gry i silnik (wszystkie – także wymagające serwera, z oznaczeniem).
+   * opts: { category, sort: 'downloads'|'newest'|'updated'|'relevance', offset }
+   */
+  static async search(query, mc, loader, opts = {}) {
+    const f = [[`categories:${loader}`], [`versions:${mc}`], ['project_type:mod']];
+    if (opts.category && /^[a-z-]{2,30}$/.test(opts.category)) f.push([`categories:${opts.category}`]);
+    const sort = ['downloads', 'newest', 'updated', 'relevance'].includes(opts.sort) ? opts.sort : (query ? 'relevance' : 'downloads');
+    const offset = Math.max(0, Math.min(Number(opts.offset) || 0, 2000));
+    const d = await getJson(`${API}/search?limit=20&offset=${offset}&index=${sort}&query=${encodeURIComponent(query || '')}&facets=${encodeURIComponent(JSON.stringify(f))}`);
+    return {
+      total: d.total_hits,
+      hits: d.hits.map((h) => ({
+        id: h.project_id, title: h.title, description: h.description, icon: h.icon_url,
+        downloads: h.downloads, author: h.author,
+        needsServer: h.server_side === 'required', serverOnly: h.client_side === 'unsupported',
+      })),
+    };
   }
 
   async addModrinth(projectId, mc, loader, requiredBy = null, depth = 0) {

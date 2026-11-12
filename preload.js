@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('launcher', {
 
   play: (opts) => invoke('game:play', opts),
   myMods: () => invoke('mymods:list'),
-  myModsSearch: (q) => invoke('mymods:search', q),
+  myModsSearch: (q, opts) => invoke('mymods:search', q, opts),
   myModsAddModrinth: (id) => invoke('mymods:addModrinth', id),
   myModsAddFile: (p) => invoke('mymods:addFile', p),
   myModsToggle: (id, on) => invoke('mymods:toggle', id, on),

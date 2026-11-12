@@ -616,39 +616,70 @@ async function refreshMyMods() {
 
 async function openMyMods() {
   $('mymods-msg').textContent = '';
-  $('mymods-results').replaceChildren();
   $('mymods-updates').replaceChildren();
   $('mymods-dialog').classList.remove('hidden');
   await refreshMyMods().catch((e) => { $('mymods-msg').textContent = cleanErr(e); });
+  renderCats();
+  searchMyMods();
   $('mymods-q').focus();
 }
 
-async function searchMyMods() {
+const MM_CATS = [
+  ['', 'Wszystkie'], ['optimization', 'Wydajność'], ['utility', 'Przydatne'], ['decoration', 'Dekoracje'],
+  ['equipment', 'Wyposażenie'], ['technology', 'Technologia'], ['magic', 'Magia'], ['adventure', 'Przygoda'],
+  ['worldgen', 'Świat'], ['mobs', 'Moby'], ['food', 'Jedzenie'], ['storage', 'Przechowywanie'],
+];
+const mm = { cat: '', offset: 0, total: 0, seq: 0 };
+
+function renderCats() {
+  $('mymods-cats').replaceChildren(...MM_CATS.map(([id, label]) => {
+    const b = el('button', { className: `mm-cat${mm.cat === id ? ' active' : ''}`, textContent: label });
+    b.onclick = () => { mm.cat = id; renderCats(); searchMyMods(); };
+    return b;
+  }));
+}
+
+function modResult(h, have) {
+  const t = el('div', { className: 'mm-title', textContent: h.title });
+  if (h.needsServer || h.serverOnly) t.append(el('span', { className: 'mm-tag disk', textContent: h.serverOnly ? 'tylko serwer' : 'wymaga serwera' }));
+  return mmItem(h.icon, t, `${h.description} · ${fmtDl(h.downloads)} pobrań`,
+    [have.has(h.id) ? el('span', { className: 'mm-tag', textContent: 'dodany' }) : mmBtn('Dodaj', 'primary-sm', async () => {
+      if ((h.needsServer || h.serverOnly) && !confirm(h.serverOnly
+        ? `${h.title} działa tylko na serwerze – u Ciebie nic nie zmieni. Dodać mimo to?`
+        : `${h.title} musi być też na serwerze. Bez tego możesz nie wejść na serwer (wtedy użyj „Uruchom bez moich modów”). Dodać mimo to?`)) return;
+      const added = await L.myModsAddModrinth(h.id);
+      $('mymods-msg').textContent = added.length > 1 ? `Dodano: ${added.join(', ')}` : `Dodano: ${added[0] || h.title}`;
+      await refreshMyMods();
+      const st = new Set(myMods.map((m) => m.projectId));
+      for (const item of $('mymods-results').querySelectorAll('.mm-item')) {
+        if (item.dataset.id && st.has(item.dataset.id)) {
+          item.querySelector('.mm-actions').replaceChildren(el('span', { className: 'mm-tag', textContent: 'dodany' }));
+        }
+      }
+    })]);
+}
+
+/** Szukanie / przeglądanie; more = dociągnij kolejną stronę. */
+async function searchMyMods(more = false) {
   const q = $('mymods-q').value.trim();
   const box = $('mymods-results');
+  const seq = ++mm.seq;
   $('mymods-msg').textContent = '';
-  box.replaceChildren(el('p', { className: 'hint', textContent: 'Szukam…' }));
+  if (!more) { mm.offset = 0; box.replaceChildren(el('p', { className: 'hint', textContent: 'Wczytuję…' })); }
+  $('btn-mymods-more').classList.add('hidden');
   try {
-    const hits = await L.myModsSearch(q);
+    const sort = q && !more && $('mymods-sort').dataset.touched !== '1' ? 'relevance' : $('mymods-sort').value;
+    const r = await L.myModsSearch(q, { category: mm.cat, sort, offset: mm.offset });
+    if (seq !== mm.seq) return; // w międzyczasie kliknięto coś innego
+    mm.total = r.total;
+    mm.offset += r.hits.length;
     const have = new Set(myMods.map((m) => m.projectId));
-    box.replaceChildren(...(hits.length ? hits.map((h) => mmItem(h.icon,
-      (() => {
-        const t = el('div', { className: 'mm-title', textContent: h.title });
-        if (h.needsServer || h.serverOnly) t.append(el('span', { className: 'mm-tag disk', textContent: h.serverOnly ? 'tylko serwer' : 'wymaga serwera' }));
-        return t;
-      })(),
-      `${h.description} · ${fmtDl(h.downloads)} pobrań`,
-      [have.has(h.id) ? el('span', { className: 'mm-tag', textContent: 'dodany' }) : mmBtn('Dodaj', 'primary-sm', async () => {
-        if ((h.needsServer || h.serverOnly) && !confirm(h.serverOnly
-          ? `${h.title} działa tylko na serwerze – u Ciebie nic nie zmieni. Dodać mimo to?`
-          : `${h.title} musi być też na serwerze. Bez tego możesz nie wejść na serwer (wtedy użyj „Uruchom bez moich modów”). Dodać mimo to?`)) return;
-        const added = await L.myModsAddModrinth(h.id);
-        $('mymods-msg').textContent = added.length > 1 ? `Dodano: ${added.join(', ')}` : `Dodano: ${added[0] || h.title}`;
-        await refreshMyMods();
-        searchMyMods();
-      })]))
-      : [el('p', { className: 'hint', textContent: 'Nic nie znaleziono. Spróbuj innej nazwy (najlepiej po angielsku).' })]));
-  } catch (e) { box.replaceChildren(); $('mymods-msg').textContent = cleanErr(e); }
+    const items = r.hits.map((h) => { const it = modResult(h, have); it.dataset.id = h.id; return it; });
+    if (!more) box.replaceChildren();
+    if (!items.length && !more) box.append(el('p', { className: 'hint', textContent: 'Nic nie znaleziono. Spróbuj innej nazwy (najlepiej po angielsku) albo innej kategorii.' }));
+    box.append(...items);
+    $('btn-mymods-more').classList.toggle('hidden', mm.offset >= mm.total || !r.hits.length);
+  } catch (e) { if (!more) box.replaceChildren(); $('mymods-msg').textContent = cleanErr(e); }
 }
 
 async function addMyModFiles(paths) {
@@ -665,8 +696,10 @@ async function addMyModFiles(paths) {
 
 $('btn-mymods').onclick = openMyMods;
 $('btn-mymods-close').onclick = () => $('mymods-dialog').classList.add('hidden');
-$('btn-mymods-search').onclick = searchMyMods;
+$('btn-mymods-search').onclick = () => searchMyMods();
 $('mymods-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchMyMods(); });
+$('mymods-sort').addEventListener('change', () => { $('mymods-sort').dataset.touched = '1'; searchMyMods(); });
+$('btn-mymods-more').onclick = () => searchMyMods(true);
 $('btn-mymods-file').onclick = (e) => { e.preventDefault(); addMyModFiles(null); };
 const drop = $('mymods-drop');
 drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });

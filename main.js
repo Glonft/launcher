@@ -510,7 +510,7 @@ app.whenReady().then(() => {
     const m = cachedManifest();
     return { list: pm().list(), mc: m && m.minecraft, loader: m && m.loader && m.loader.type };
   });
-  ipcMain.handle('mymods:search', (_e, q) => { const t = pmTarget(); return PlayerMods.search(String(q || ''), t.mc, t.loader); });
+  ipcMain.handle('mymods:search', (_e, q, opts) => { const t = pmTarget(); return PlayerMods.search(String(q || ''), t.mc, t.loader, opts || {}); });
   ipcMain.handle('mymods:addModrinth', async (_e, id) => {
     if (running) throw new Error('Zamknij grę, zanim zmienisz mody.');
     const t = pmTarget();

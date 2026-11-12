@@ -156,3 +156,9 @@ summary { cursor: pointer; color: #8b8f9a; margin-bottom: 8px; }
 .mymods-drop { margin-top: 12px; border: 2px dashed #2c303a; border-radius: 10px; padding: 14px; text-align: center; color: #8b8f9a; font-size: 13px; }
 .mymods-drop.over { border-color: #3fa34d; background: #3fa34d14; }
 .row.between { justify-content: space-between; align-items: center; }
+.mm-filters { margin-top: 10px; align-items: flex-start; gap: 8px; }
+.mm-cats { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.mm-cat { font-size: 12px; padding: 4px 10px; border-radius: 14px; background: #20232b; border: 1px solid #2c303a; color: #b9bcc6; }
+.mm-cat.active { background: #3fa34d33; border-color: #3fa34d; color: #fff; }
+#mymods-sort { width: auto; font-size: 12px; padding: 5px 8px; }
+.mm-scroll { max-height: 300px; overflow: auto; padding-right: 4px; }

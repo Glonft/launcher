@@ -102,7 +102,16 @@
         <input id="mymods-q" placeholder="Szukaj w Modrinth, np. minimap, zoom, sound…">
         <button id="btn-mymods-search" class="primary-sm">Szukaj</button>
       </div>
-      <div id="mymods-results" class="mymods-results"></div>
+      <div class="row mm-filters">
+        <div id="mymods-cats" class="mm-cats"></div>
+        <select id="mymods-sort" title="Sortowanie">
+          <option value="downloads">Najpopularniejsze</option>
+          <option value="newest">Najnowsze</option>
+          <option value="updated">Ostatnio zaktualizowane</option>
+        </select>
+      </div>
+      <div id="mymods-results" class="mymods-results mm-scroll"></div>
+      <div class="center-text"><button id="btn-mymods-more" class="small-btn hidden">Pokaż więcej</button></div>
       <div id="mymods-drop" class="mymods-drop">Przeciągnij tutaj plik .jar albo <a href="#" id="btn-mymods-file">wybierz z dysku</a></div>
       <div class="row between">
         <h3>Twoje mody</h3>
