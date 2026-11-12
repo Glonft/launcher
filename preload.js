@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 const invoke = (ch, ...a) => ipcRenderer.invoke(ch, ...a);
 
@@ -21,7 +21,16 @@ contextBridge.exposeInMainWorld('launcher', {
   setCape: (capeId) => invoke('skin:setCape', capeId),
   copySkinCommand: () => invoke('skin:copyCommand'),
 
-  play: () => invoke('game:play'),
+  play: (opts) => invoke('game:play', opts),
+  myMods: () => invoke('mymods:list'),
+  myModsSearch: (q) => invoke('mymods:search', q),
+  myModsAddModrinth: (id) => invoke('mymods:addModrinth', id),
+  myModsAddFile: (p) => invoke('mymods:addFile', p),
+  myModsToggle: (id, on) => invoke('mymods:toggle', id, on),
+  myModsRemove: (id) => invoke('mymods:remove', id),
+  myModsUpdates: () => invoke('mymods:updates'),
+  myModsUpdate: (u) => invoke('mymods:update', u),
+  pathForFile: (f) => webUtils.getPathForFile(f),
   repair: () => invoke('game:repair'),
   openFolder: () => invoke('game:openFolder'),
   openExternal: (url) => invoke('open:external', url),

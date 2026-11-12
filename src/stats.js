@@ -36,6 +36,7 @@ async function sendHello(url, d, { force = false } = {}) {
         kind: kind(),
         os: system(),
         addons: d.addons || [],
+        mods: d.mods || [],
       }),
     });
   } catch { /* brak połączenia z serwerem statystyk – bez znaczenia dla gracza */ }

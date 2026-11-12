@@ -137,3 +137,22 @@ summary { cursor: pointer; color: #8b8f9a; margin-bottom: 8px; }
 .warn-text { color: #ffc566; }
 .ghost-sm { background: transparent; border: 1px solid #3a3f4b; padding: 5px 10px; font-size: 12px; }
 .update-bar.forced { border-color: #e0a10088; background: rgba(224, 161, 0, .14); }
+
+/* Moje mody */
+.account-actions { display: flex; gap: 8px; }
+.account-actions .skin-btn { flex: 1; }
+.play-clean { display: block; margin-top: 6px; color: #8b8f9a; }
+.mymods-panel { width: min(760px, 94vw); max-height: 90vh; overflow: auto; }
+.mymods-panel h3 { margin: 14px 0 6px; font-size: 14px; }
+.mymods-results, .mymods-list { display: grid; gap: 6px; margin-top: 8px; }
+.mm-item { display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; padding: 8px; border: 1px solid #2a2e37; border-radius: 8px; background: #15171d; }
+.mm-item img, .mm-item .mm-noicon { width: 36px; height: 36px; border-radius: 6px; background: #0e1014; object-fit: cover; }
+.mm-item .mm-title { font-weight: 600; font-size: 13px; }
+.mm-item .mm-sub { color: #8b8f9a; font-size: 12px; }
+.mm-item.off { opacity: .55; }
+.mm-item .mm-actions { display: flex; gap: 6px; }
+.mm-tag { font-size: 11px; padding: 1px 7px; border-radius: 10px; background: #2c303a; margin-left: 6px; color: #b9bcc6; }
+.mm-tag.disk { background: #e0a10022; color: #ffd27a; }
+.mymods-drop { margin-top: 12px; border: 2px dashed #2c303a; border-radius: 10px; padding: 14px; text-align: center; color: #8b8f9a; font-size: 13px; }
+.mymods-drop.over { border-color: #3fa34d; background: #3fa34d14; }
+.row.between { justify-content: space-between; align-items: center; }

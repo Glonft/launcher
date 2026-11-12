@@ -569,3 +569,119 @@ async function init() {
   setInterval(refreshStatus, 60 * 1000);
 }
 init();
+
+// ---------- Moje mody ----------
+
+const fmtDl = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace('.', ',')} mln` : n >= 1e3 ? `${Math.round(n / 1e3)} tys.` : String(n));
+let myMods = [];
+
+function mmItem(icon, title, sub, actions, cls = '') {
+  return el('div', { className: `mm-item ${cls}` },
+    icon ? el('img', { src: icon, alt: '' }) : el('div', { className: 'mm-noicon' }),
+    el('div', {}, title, el('div', { className: 'mm-sub', textContent: sub })),
+    el('div', { className: 'mm-actions' }, ...actions));
+}
+function mmBtn(text, cls, fn) {
+  const b = el('button', { className: cls, textContent: text });
+  b.onclick = async () => {
+    b.disabled = true;
+    const old = b.textContent;
+    b.textContent = '…';
+    try { await fn(); } catch (e) { $('mymods-msg').textContent = cleanErr(e); }
+    finally { b.disabled = false; b.textContent = old; }
+  };
+  return b;
+}
+
+async function refreshMyMods() {
+  const d = await L.myMods();
+  myMods = d.list;
+  const on = myMods.filter((m) => m.enabled).length;
+  $('mymods-count').textContent = myMods.length ? `(${on})` : '';
+  $('btn-play-clean').classList.toggle('hidden', !on);
+  const box = $('mymods-list');
+  if (!myMods.length) { box.replaceChildren(el('p', { className: 'hint', textContent: 'Nie masz jeszcze własnych modów.' })); return; }
+  box.replaceChildren(...myMods.map((m) => {
+    const title = el('div', { className: 'mm-title', textContent: m.name });
+    if (m.source === 'dysk') title.append(el('span', { className: 'mm-tag disk', textContent: 'z dysku' }));
+    if (!m.enabled) title.append(el('span', { className: 'mm-tag', textContent: 'wyłączony' }));
+    const sub = [m.version, (m.requiredBy || []).length ? `wymagany przez: ${m.requiredBy.map((r) => (myMods.find((x) => x.id === r) || {}).name || r).join(', ')}` : ''].filter(Boolean).join(' · ');
+    return mmItem(m.icon, title, sub, [
+      mmBtn(m.enabled ? 'Wyłącz' : 'Włącz', 'small-btn', async () => { await L.myModsToggle(m.id, !m.enabled); await refreshMyMods(); }),
+      mmBtn('Usuń', 'small-btn', async () => { await L.myModsRemove(m.id); await refreshMyMods(); }),
+    ], m.enabled ? '' : 'off');
+  }));
+}
+
+async function openMyMods() {
+  $('mymods-msg').textContent = '';
+  $('mymods-results').replaceChildren();
+  $('mymods-updates').replaceChildren();
+  $('mymods-dialog').classList.remove('hidden');
+  await refreshMyMods().catch((e) => { $('mymods-msg').textContent = cleanErr(e); });
+  $('mymods-q').focus();
+}
+
+async function searchMyMods() {
+  const q = $('mymods-q').value.trim();
+  const box = $('mymods-results');
+  $('mymods-msg').textContent = '';
+  box.replaceChildren(el('p', { className: 'hint', textContent: 'Szukam…' }));
+  try {
+    const hits = await L.myModsSearch(q);
+    const have = new Set(myMods.map((m) => m.projectId));
+    box.replaceChildren(...(hits.length ? hits.map((h) => mmItem(h.icon,
+      el('div', { className: 'mm-title', textContent: h.title }),
+      `${h.description} · ${fmtDl(h.downloads)} pobrań`,
+      [have.has(h.id) ? el('span', { className: 'mm-tag', textContent: 'dodany' }) : mmBtn('Dodaj', 'primary-sm', async () => {
+        const added = await L.myModsAddModrinth(h.id);
+        $('mymods-msg').textContent = added.length > 1 ? `Dodano: ${added.join(', ')}` : `Dodano: ${added[0] || h.title}`;
+        await refreshMyMods();
+        searchMyMods();
+      })]))
+      : [el('p', { className: 'hint', textContent: 'Nic nie znaleziono. Spróbuj innej nazwy (najlepiej po angielsku).' })]));
+  } catch (e) { box.replaceChildren(); $('mymods-msg').textContent = cleanErr(e); }
+}
+
+async function addMyModFiles(paths) {
+  $('mymods-msg').textContent = 'Dodaję…';
+  try {
+    const results = paths ? (await Promise.all(paths.map((p) => L.myModsAddFile(p)))).flat() : await L.myModsAddFile(null);
+    if (!results.length) { $('mymods-msg').textContent = ''; return; }
+    const ok = results.filter((r) => r.ok).map((r) => r.ok);
+    const bad = results.filter((r) => r.error).map((r) => r.error);
+    $('mymods-msg').textContent = [ok.length ? `Dodano: ${ok.join(', ')}. Uwaga: mody spoza Modrinth nie są sprawdzane – jeśli gra się wysypie, wyłącz je.` : '', ...bad].filter(Boolean).join(' ');
+    await refreshMyMods();
+  } catch (e) { $('mymods-msg').textContent = cleanErr(e); }
+}
+
+$('btn-mymods').onclick = openMyMods;
+$('btn-mymods-close').onclick = () => $('mymods-dialog').classList.add('hidden');
+$('btn-mymods-search').onclick = searchMyMods;
+$('mymods-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchMyMods(); });
+$('btn-mymods-file').onclick = (e) => { e.preventDefault(); addMyModFiles(null); };
+const drop = $('mymods-drop');
+drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', (e) => {
+  e.preventDefault();
+  drop.classList.remove('over');
+  const paths = [...e.dataTransfer.files].map((f) => L.pathForFile(f)).filter(Boolean);
+  if (paths.length) addMyModFiles(paths);
+});
+$('btn-mymods-updates').onclick = async () => {
+  const box = $('mymods-updates');
+  box.replaceChildren(el('p', { className: 'hint', textContent: 'Sprawdzam…' }));
+  try {
+    const ups = await L.myModsUpdates();
+    if (!ups.length) { box.replaceChildren(el('p', { className: 'hint', textContent: 'Wszystko aktualne (sprawdzane przez Modrinth).' })); return; }
+    box.replaceChildren(...ups.map((u) => mmItem(null, el('div', { className: 'mm-title', textContent: u.name }), `${u.from} → ${u.to}`,
+      [mmBtn('Aktualizuj', 'primary-sm', async () => { await L.myModsUpdate(u); await refreshMyMods(); $('btn-mymods-updates').click(); })])));
+  } catch (e) { box.replaceChildren(); $('mymods-msg').textContent = cleanErr(e); }
+};
+$('btn-play-clean').onclick = (e) => {
+  e.preventDefault();
+  if ($('btn-play').disabled) return;
+  appState = 'preparing'; updatePlayButton(); L.play({ withoutMine: true });
+};
+refreshMyMods().catch(() => {});

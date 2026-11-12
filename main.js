@@ -10,6 +10,7 @@ const { syncModpack } = require('./src/sync');
 const { downloadInBackground } = require('./src/seed');
 const { ensureServerEntry } = require('./src/servers-dat');
 const { sendHello } = require('./src/stats');
+const { PlayerMods, packModIds } = require('./src/player-mods');
 const { enabledAddons } = require('./src/sync');
 const { ensureJava } = require('./src/java');
 const { ensureLoader, LOADERS } = require('./src/loaders');
@@ -76,7 +77,8 @@ function hello(manifest, force) {
   try {
     const m = manifest || cachedManifest();
     const addons = m ? enabledAddons(m, settings.get().addons || {}).map((g) => g.id) : [];
-    sendHello(config.statsUrl, { account: accounts.state().active, version: app.getVersion(), addons }, { force });
+    const mods = new PlayerMods(gameDir()).list().filter((x) => x.enabled).slice(0, 50).map((x) => ({ name: x.name, source: x.source }));
+    sendHello(config.statsUrl, { account: accounts.state().active, version: app.getVersion(), addons, mods }, { force });
   } catch { /* bez znaczenia dla gracza */ }
 }
 
@@ -148,7 +150,7 @@ function startSeedDownloads(todo) {
 }
 let quitWhenSeedDone = false;
 
-async function play() {
+async function play(opts = {}) {
   if (running || busy) return;
   running = true;
   setState('preparing');
@@ -160,6 +162,9 @@ async function play() {
     try {
       if (ensureServerEntry(dir, server)) log(`Lista serwerów: ustawiono „${server.name}” (${server.host}:${server.port}).`);
     } catch (e) { log(`Lista serwerów: ${e.message}`); }
+    try {
+      new PlayerMods(dir).install(packModIds(dir, manifest), !!opts.withoutMine, log);
+    } catch (e) { log(`Moje mody: ${e.message}`); }
 
     progress('Logowanie...', 0);
     const authorization = await accounts.getLaunchAuth();
@@ -490,7 +495,48 @@ app.whenReady().then(() => {
     return skinState();
   });
 
-  ipcMain.handle('game:play', () => play());
+  ipcMain.handle('game:play', (_e, opts) => play(opts || {}));
+
+  // ---------- Moje mody ----------
+  const pmTarget = () => {
+    const m = cachedManifest();
+    if (!m) throw new Error('Najpierw uruchom launcher z internetem, żeby pobrać informacje o paczce.');
+    const loader = (m.loader && m.loader.type) || 'neoforge';
+    if (loader === 'vanilla') throw new Error('Serwer działa bez modów (vanilla) – własnych modów nie da się dodać.');
+    return { mc: m.minecraft, loader };
+  };
+  const pm = () => new PlayerMods(gameDir());
+  ipcMain.handle('mymods:list', () => {
+    const m = cachedManifest();
+    return { list: pm().list(), mc: m && m.minecraft, loader: m && m.loader && m.loader.type };
+  });
+  ipcMain.handle('mymods:search', (_e, q) => { const t = pmTarget(); return PlayerMods.search(String(q || ''), t.mc, t.loader); });
+  ipcMain.handle('mymods:addModrinth', async (_e, id) => {
+    if (running) throw new Error('Zamknij grę, zanim zmienisz mody.');
+    const t = pmTarget();
+    return pm().addModrinth(String(id), t.mc, t.loader);
+  });
+  ipcMain.handle('mymods:addFile', async (_e, filePath) => {
+    if (running) throw new Error('Zamknij grę, zanim zmienisz mody.');
+    const t = pmTarget();
+    let p = filePath;
+    if (!p) {
+      const r = await dialog.showOpenDialog(win, { title: 'Wybierz mod (.jar)', filters: [{ name: 'Mody', extensions: ['jar'] }], properties: ['openFile', 'multiSelections'] });
+      if (r.canceled) return [];
+      return r.filePaths.map((f) => { try { return { ok: pm().addFile(f, t.loader).name }; } catch (e) { return { error: `${path.basename(f)}: ${e.message}` }; } });
+    }
+    return [(() => { try { return { ok: pm().addFile(p, t.loader).name }; } catch (e) { return { error: `${path.basename(p)}: ${e.message}` }; } })()];
+  });
+  ipcMain.handle('mymods:toggle', (_e, id, on) => pm().setEnabled(String(id), on));
+  ipcMain.handle('mymods:remove', (_e, id) => {
+    if (running) throw new Error('Zamknij grę, zanim zmienisz mody.');
+    return pm().remove(String(id));
+  });
+  ipcMain.handle('mymods:updates', () => { const t = pmTarget(); return pm().checkUpdates(t.mc, t.loader); });
+  ipcMain.handle('mymods:update', async (_e, u) => {
+    if (running) throw new Error('Zamknij grę, zanim zmienisz mody.');
+    return pm().applyUpdate(u);
+  });
   ipcMain.handle('game:repair', () => repair());
   ipcMain.handle('game:openFolder', () => shell.openPath(gameDir()));
   ipcMain.handle('open:external', (_e, url) => {

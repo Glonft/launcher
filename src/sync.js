@@ -69,6 +69,8 @@ async function syncModpack(manifest, gameDir, log, progress, addonChoices = {}) 
     const abs = safeJoin(gameDir, dir);
     if (!fs.existsSync(abs)) continue;
     for (const file of walk(abs)) {
+      // mody gracza („Moje mody”) obsługuje player-mods.js
+      if (path.dirname(path.resolve(file)) === path.resolve(gameDir, 'mods') && path.basename(file).startsWith('gracz-')) continue;
       if (!wanted.has(path.resolve(file))) {
         fs.rmSync(file);
         log(`Usunięto: ${path.relative(gameDir, file)}`);
