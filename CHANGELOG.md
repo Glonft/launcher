@@ -8,6 +8,11 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.8.0
+- „Moje mody”: dodawaj własne mody z Modrinth albo z dysku – wyłączysz je i usuniesz jednym kliknięciem
+- Mody wymagające serwera są oznaczone, żebyś wiedział, które mogą nie zadziałać
+- Przycisk „Uruchom bez moich modów” na wypadek, gdyby któryś mod psuł grę
+
 ## 0.7.1
 - Aktualizacje launchera nie instalują się same – możesz je odłożyć na później
 
