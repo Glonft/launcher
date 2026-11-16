@@ -147,7 +147,7 @@ function openAddAccount() {
 }
 $('btn-add-account-first').onclick = openAddAccount;
 $('btn-add-account').onclick = openAddAccount;
-$('btn-add-cancel').onclick = () => $('add-account').classList.add('hidden');
+const closeAddAccount = () => $('add-account').classList.add('hidden');
 $('btn-ms').onclick = async () => {
   $('login-error').textContent = '';
   try {
@@ -262,7 +262,7 @@ $('btn-skin-copy').onclick = async () => {
 };
 
 $('btn-skin').onclick = openSkin;
-$('btn-skin-close').onclick = () => $('skin-dialog').classList.add('hidden');
+const closeSkin = () => $('skin-dialog').classList.add('hidden');
 $('btn-skin-pick').onclick = async () => {
   $('skin-error').textContent = '';
   try {
@@ -503,7 +503,7 @@ function showDirChange(dir) {
 }
 
 $('btn-settings').onclick = openSettings;
-$('btn-settings-cancel').onclick = () => { settingsSnapshot = null; $('settings').classList.add('hidden'); };
+
 $('ram-max').oninput = updateRamLabels;
 $('ram-min').oninput = updateRamLabels;
 $('fullscreen').onchange = () => { $('win-w').disabled = $('win-h').disabled = $('fullscreen').checked; };
@@ -618,10 +618,14 @@ async function refreshMyMods() {
   $('mymods-count').textContent = myMods.length ? `(${on})` : '';
   $('btn-play-clean').classList.toggle('hidden', !myMods.some((m) => m.enabled && !m.blocked && (m.kind || 'mod') === 'mod'));
   const box = $('mymods-list');
+  if (mm.kind === 'installed') return renderInstalled(box);
   const mine = myMods.filter((m) => (m.kind || 'mod') === mm.kind);
   $('mymods-list-title').textContent = MM_TEXT[mm.kind].list;
   if (!mine.length) { box.replaceChildren(el('p', { className: 'hint', textContent: MM_TEXT[mm.kind].empty })); return; }
-  box.replaceChildren(...mine.map((m) => {
+  box.replaceChildren(...mine.map(playerModItem));
+}
+
+function playerModItem(m) {
     const title = el('div', { className: 'mm-title' }, m.projectId ? mrLink(m.projectId, m.name) : m.name);
     if (m.source === 'dysk') title.append(el('span', { className: 'mm-tag disk', textContent: 'z dysku' }));
     if (m.needsServer) title.append(el('span', { className: 'mm-tag disk', textContent: 'wymaga serwera' }));
@@ -632,7 +636,6 @@ async function refreshMyMods() {
       m.blocked ? null : mmBtn(m.enabled ? 'Wyłącz' : 'Włącz', 'small-btn', async () => { await L.myModsToggle(m.id, !m.enabled); await refreshMyMods(); }),
       mmBtn('Usuń', 'small-btn', async () => { await L.myModsRemove(m.id); await refreshMyMods(); }),
     ].filter(Boolean), m.enabled && !m.blocked ? '' : 'off', m.projectId ? `https://modrinth.com/project/${encodeURIComponent(m.projectId)}` : null);
-  }));
 }
 
 async function openMyMods() {
@@ -642,6 +645,37 @@ async function openMyMods() {
   await refreshMyMods().catch((e) => { $('mymods-msg').textContent = cleanErr(e); });
   setMmKind(mm.kind);
   $('mymods-q').focus();
+}
+
+let installedCache = null;
+async function renderInstalled(box) {
+  const q = ($('mymods-installed-q').value || '').toLowerCase();
+  if (!installedCache) {
+    box.replaceChildren(el('p', { className: 'hint', textContent: 'Wczytuję…' }));
+    installedCache = await L.myModsInstalled();
+  }
+  const mine = myMods.filter((m) => (m.kind || 'mod') === 'mod');
+  const match = (name) => !q || String(name || '').toLowerCase().includes(q);
+  const lock = (text) => el('span', { className: 'mm-tag lock', textContent: text });
+  const packItems = installedCache.pack.filter((p) => match(p.name) || match(p.file)).map((p) => {
+    const t = el('div', { className: 'mm-title', textContent: `🔒 ${p.name || p.file.replace(/\.jar$/i, '')}` });
+    t.append(lock('z paczki serwera'));
+    return mmItem(null, t, [p.version, p.file].filter(Boolean).join(' · '), []);
+  });
+  const addonItems = installedCache.addons.filter((a) => match(a.file)).map((a) => {
+    const t = el('div', { className: 'mm-title', textContent: `🔒 ${a.file.replace(/\.jar$/i, '')}` });
+    t.append(lock(`dodatek: ${a.addon}`));
+    return mmItem(null, t, 'Włączasz i wyłączasz w Ustawieniach → Dodatki', []);
+  });
+  const myItems = mine.filter((m) => match(m.name)).map(playerModItem);
+  $('mymods-list-title').textContent = `Zainstalowane mody (${installedCache.pack.length + installedCache.addons.length + mine.length})`;
+  const sec = (txt) => el('div', { className: 'mm-section', textContent: txt });
+  if (!installedCache.pack.length && !mine.length) { box.replaceChildren(el('p', { className: 'hint', textContent: MM_TEXT.installed.empty })); return; }
+  box.replaceChildren(
+    ...(myItems.length ? [sec(`Twoje mody (${myItems.length})`), ...myItems] : []),
+    ...(addonItems.length ? [sec(`Z dodatków (${addonItems.length})`), ...addonItems] : []),
+    sec(`Z paczki serwera (${packItems.length})`), ...packItems,
+  );
 }
 
 const MM_CATS = {
@@ -663,6 +697,7 @@ const MM_CATS = {
 const MM_TEXT = {
   mod: { hint: 'Mody tylko dla Ciebie, np. minimapa, zoom albo lepsze dźwięki. Mody oznaczone „wymaga serwera” muszą być też na serwerze – bez tego możesz nie wejść do gry.', list: 'Twoje mody', q: 'Szukaj w Modrinth, np. minimap, zoom, sound…', empty: 'Nie masz jeszcze własnych modów.' },
   shader: { hint: 'Shadery zmieniają oświetlenie, cienie i wodę. Potrzebują moda Iris – launcher zaproponuje go przy pierwszym shaderze. Włączasz je w grze: Opcje → Ustawienia grafiki → Paczki shaderów.', list: 'Twoje shadery', q: 'Szukaj shaderów, np. Complementary, BSL…', empty: 'Nie masz jeszcze shaderów.' },
+  installed: { hint: 'Wszystkie mody, które masz w grze. Mody z kłódką dodała administracja serwera – są potrzebne do gry i nie da się ich usunąć. Swoje mody możesz wyłączać i usuwać.', list: 'Zainstalowane mody', q: '', empty: 'Brak informacji o modach – uruchom grę przynajmniej raz.' },
   resourcepack: { hint: 'Paczki tekstur zmieniają wygląd bloków, przedmiotów i interfejsu. Włączasz je w grze: Opcje → Paczki zasobów.', list: 'Twoje paczki tekstur', q: 'Szukaj paczek tekstur, np. Faithful, Fresh Animations…', empty: 'Nie masz jeszcze paczek tekstur.' },
 };
 const mm = { kind: 'mod', cat: '', offset: 0, total: 0, seq: 0 };
@@ -742,14 +777,24 @@ function setMmKind(kind) {
   mm.cat = '';
   for (const b of $('mymods-tabs').querySelectorAll('button')) b.classList.toggle('active', b.dataset.kind === kind);
   $('mymods-hint').textContent = MM_TEXT[kind].hint;
+  const installed = kind === 'installed';
+  for (const e of document.querySelectorAll('.mm-browse')) e.classList.toggle('hidden', installed);
+  $('mymods-installed-q').classList.toggle('hidden', !installed);
+  if (installed) {
+    installedCache = null;
+    $('mymods-installed-q').value = '';
+    refreshMyMods().catch((e) => { $('mymods-msg').textContent = cleanErr(e); });
+    return;
+  }
   $('mymods-q').placeholder = MM_TEXT[kind].q;
   $('mymods-q').value = '';
   renderCats();
   refreshMyMods().catch(() => {});
   searchMyMods();
 }
+$('mymods-installed-q').addEventListener('input', () => renderInstalled($('mymods-list')));
 for (const b of $('mymods-tabs').querySelectorAll('button')) b.onclick = () => setMmKind(b.dataset.kind);
-$('btn-mymods-close').onclick = () => $('mymods-dialog').classList.add('hidden');
+const closeMyMods = () => $('mymods-dialog').classList.add('hidden');
 $('btn-mymods-search').onclick = () => searchMyMods();
 $('mymods-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchMyMods(); });
 $('mymods-sort').addEventListener('change', () => { $('mymods-sort').dataset.touched = '1'; searchMyMods(); });
@@ -784,9 +829,9 @@ refreshMyMods().catch(() => {});
 // ---------- zamykanie okien: klik obok, Esc, ✕ ----------
 
 const OVERLAY_CLOSE = {
-  'add-account': () => $('btn-add-cancel').click(),
-  'mymods-dialog': () => $('btn-mymods-close').click(),
-  'skin-dialog': () => $('btn-skin-close').click(),
+  'add-account': () => closeAddAccount(),
+  'mymods-dialog': () => closeMyMods(),
+  'skin-dialog': () => closeSkin(),
   changes: () => $('btn-changes-close').click(),
   settings: () => closeSettingsSafely(),
 };

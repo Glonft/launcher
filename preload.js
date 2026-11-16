@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('launcher', {
   myModsSearch: (q, opts) => invoke('mymods:search', q, opts),
   myModsAddModrinth: (id, kind) => invoke('mymods:addModrinth', id, kind),
   myModsNeedIris: () => invoke('mymods:needIris'),
+  myModsInstalled: () => invoke('mymods:installed'),
   myModsAddFile: (p) => invoke('mymods:addFile', p),
   myModsToggle: (id, on) => invoke('mymods:toggle', id, on),
   myModsRemove: (id) => invoke('mymods:remove', id),

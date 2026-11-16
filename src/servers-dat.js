@@ -109,9 +109,15 @@ function ensureServerEntry(gameDir, server) {
 
   const entry = list.value.items.find((c) => { const t = get(c, 'ip'); return t && sameAddr(t.value, server.host, port); });
   if (entry) {
+    // Minecraft przy „szybkim dołączeniu” zapisuje serwer jako UKRYTY (hidden) – wtedy nie ma go na liście.
+    const hiddenIdx = entry.findIndex((t) => t.name === 'hidden');
+    const wasHidden = hiddenIdx >= 0 && Number(entry[hiddenIdx].value) !== 0;
+    if (hiddenIdx >= 0) entry.splice(hiddenIdx, 1);
     const n = get(entry, 'name');
-    if (n && n.value === name) return false;
+    if (n && n.value === name && !wasHidden && hiddenIdx < 0) return false;
     if (n) n.value = name; else entry.unshift({ type: T.STRING, name: 'name', value: name });
+    // wpis na górę listy
+    list.value.items = [entry, ...list.value.items.filter((c) => c !== entry)];
   } else {
     list.value.items.unshift([
       { type: T.STRING, name: 'name', value: name },

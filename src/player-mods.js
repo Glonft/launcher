@@ -304,23 +304,34 @@ class PlayerMods {
   }
 }
 
-/** modId modów z paczki (z pamięcią podręczną po hashu, żeby nie czytać 100+ plików przy każdym starcie). */
-function packModIds(gameDir, manifest) {
+/**
+ * Informacje o modach z paczki (nazwa, wersja, modId) – z pamięcią podręczną po hashu,
+ * żeby nie czytać 100+ plików przy każdym starcie.
+ */
+function packModInfo(gameDir, manifest) {
   const cacheFile = path.join(gameDir, '.melinasmp-modids.json');
   let cache = {};
   try { cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8')); } catch { /* pusta */ }
-  const ids = new Set();
+  const out = [];
   const next = {};
   for (const f of manifest.files.filter((x) => /^mods\/[^/]+\.jar$/i.test(x.path))) {
-    let id = cache[f.sha1];
-    if (id === undefined) {
-      try { id = modInfo(fs.readFileSync(path.join(gameDir, f.path))).id || null; } catch { id = null; }
+    let info = cache[f.sha1];
+    if (!info || typeof info !== 'object') {
+      try {
+        const m = modInfo(fs.readFileSync(path.join(gameDir, f.path)));
+        info = { id: m.id || null, name: m.name || null, version: m.version || null };
+      } catch { info = { id: null, name: null, version: null }; }
     }
-    next[f.sha1] = id;
-    if (id) ids.add(id);
+    next[f.sha1] = info;
+    out.push({ file: f.path.slice(5), sha1: f.sha1, size: f.size || null, ...info });
   }
   try { fs.writeFileSync(cacheFile, JSON.stringify(next)); } catch { /* bez znaczenia */ }
-  return ids;
+  return out;
 }
 
-module.exports = { PlayerMods, packModIds, PREFIX, IRIS, KINDS };
+/** modId modów z paczki. */
+function packModIds(gameDir, manifest) {
+  return new Set(packModInfo(gameDir, manifest).map((m) => m.id).filter(Boolean));
+}
+
+module.exports = { PlayerMods, packModIds, packModInfo, PREFIX, IRIS, KINDS };

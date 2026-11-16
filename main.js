@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, screen, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Client } = require('minecraft-launcher-core');
@@ -10,7 +10,7 @@ const { syncModpack } = require('./src/sync');
 const { downloadInBackground } = require('./src/seed');
 const { ensureServerEntry } = require('./src/servers-dat');
 const { sendHello } = require('./src/stats');
-const { PlayerMods, packModIds, IRIS } = require('./src/player-mods');
+const { PlayerMods, packModIds, packModInfo, IRIS } = require('./src/player-mods');
 const { enabledAddons } = require('./src/sync');
 const { ensureJava } = require('./src/java');
 const { ensureLoader, LOADERS } = require('./src/loaders');
@@ -384,6 +384,7 @@ function initUpdater() {
 // ---------- start ----------
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   const userData = app.getPath('userData');
   accounts = new AccountStore(path.join(userData, 'accounts.json'), config.microsoftClientId);
   settings = new SettingsStore(path.join(userData, 'settings.json'), {
@@ -546,6 +547,16 @@ app.whenReady().then(() => {
     return { list: pm().list(), mc: m && m.minecraft, loader: m && m.loader && m.loader.type };
   });
   ipcMain.handle('mymods:search', (_e, q, opts) => { const t = pmTarget(); return PlayerMods.search(String(q || ''), t.mc, t.loader, opts || {}, blockedList()); });
+  // wszystkie zainstalowane mody: z paczki serwera (bez usuwania) + mody gracza
+  ipcMain.handle('mymods:installed', () => {
+    const m = cachedManifest();
+    if (!m) return { pack: [], addons: [] };
+    const dir = gameDir();
+    const pack = packModInfo(dir, m).filter((x) => fs.existsSync(path.join(dir, 'mods', x.file)));
+    const addonMods = enabledAddons(m, settings.get().addons || {})
+      .flatMap((g) => g.files.filter((f) => /^mods\/[^/]+\.jar$/i.test(f.path)).map((f) => ({ file: f.path.slice(5), addon: g.name })));
+    return { pack, addons: addonMods };
+  });
   ipcMain.handle('mymods:needIris', () => {
     const m = cachedManifest();
     return !!m && !pm().hasIris(packModIds(gameDir(), m));
@@ -636,6 +647,7 @@ app.whenReady().then(() => {
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
   });
+  win.removeMenu(); // bez menu „File / Edit / View” pod Altem
   baseContentSize = win.getContentSize();
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.webContents.on('did-finish-load', applyZoom);

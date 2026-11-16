@@ -89,7 +89,6 @@
         <button id="btn-offline">Dodaj</button>
       </div>
       <p id="login-error" class="error"></p>
-      <div class="row end"><button id="btn-add-cancel">Anuluj</button></div>
     </div>
   </div>
 
@@ -101,13 +100,14 @@
         <button data-kind="mod" class="active">Mody</button>
         <button data-kind="shader">Shadery</button>
         <button data-kind="resourcepack">Paczki tekstur</button>
+        <button data-kind="installed">Zainstalowane</button>
       </div>
       <p id="mymods-hint" class="hint">Mody tylko dla Ciebie, np. minimapa, zoom albo lepsze dźwięki. Mody oznaczone „wymaga serwera” muszą być też na serwerze – bez tego możesz nie wejść do gry.</p>
-      <div class="row">
+      <div class="row mm-browse">
         <input id="mymods-q" placeholder="Szukaj w Modrinth, np. minimap, zoom, sound…">
         <button id="btn-mymods-search" class="primary-sm">Szukaj</button>
       </div>
-      <div class="row mm-filters">
+      <div class="row mm-filters mm-browse">
         <div id="mymods-cats" class="mm-cats"></div>
         <select id="mymods-sort" title="Sortowanie">
           <option value="downloads">Najpopularniejsze</option>
@@ -115,17 +115,17 @@
           <option value="updated">Ostatnio zaktualizowane</option>
         </select>
       </div>
-      <div id="mymods-results" class="mymods-results mm-scroll"></div>
-      <div class="center-text"><button id="btn-mymods-more" class="small-btn hidden">Pokaż więcej</button></div>
-      <div id="mymods-drop" class="mymods-drop">Przeciągnij tutaj plik .jar (mod) albo .zip (shader, paczka tekstur) albo <a href="#" id="btn-mymods-file">wybierz z dysku</a></div>
+      <div id="mymods-results" class="mymods-results mm-scroll mm-browse"></div>
+      <div class="center-text mm-browse"><button id="btn-mymods-more" class="small-btn hidden">Pokaż więcej</button></div>
+      <div id="mymods-drop" class="mymods-drop mm-browse">Przeciągnij tutaj plik .jar (mod) albo .zip (shader, paczka tekstur) albo <a href="#" id="btn-mymods-file">wybierz z dysku</a></div>
       <div class="row between">
         <h3 id="mymods-list-title">Twoje mody</h3>
         <button id="btn-mymods-updates" class="small-btn">Sprawdź aktualizacje</button>
       </div>
       <div id="mymods-updates"></div>
+      <input id="mymods-installed-q" class="hidden" placeholder="Szukaj wśród zainstalowanych modów…">
       <div id="mymods-list" class="mymods-list"></div>
       <p id="mymods-msg" class="hint"></p>
-      <div class="row end"><button id="btn-mymods-close">Zamknij</button></div>
     </div>
   </div>
 
@@ -167,7 +167,6 @@
       <p id="skin-status" class="hint"></p>
       <p id="skin-error" class="error"></p>
       <div class="row end sticky-actions">
-        <button id="btn-skin-close">Zamknij</button>
         <button id="btn-skin-save" class="primary-sm" disabled>Zapisz zmiany</button>
       </div>
     </div>
@@ -270,7 +269,6 @@
 
       <p id="settings-error" class="error"></p>
       <div class="row end sticky-actions">
-        <button id="btn-settings-cancel">Anuluj</button>
         <button id="btn-settings-save" class="primary-sm">Zapisz</button>
       </div>
     </div>
