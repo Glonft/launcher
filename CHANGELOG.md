@@ -8,6 +8,11 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.8.3
+- Serwer MelinaSMP jest teraz widoczny na liście serwerów w grze – po wyjściu wrócisz jednym kliknięciem
+- „Moje mody” → nowa zakładka „Zainstalowane” ze wszystkimi modami w grze
+- Animacje w podglądzie skina (chodzenie, bieganie, machanie i inne), przybliżanie, nick nad głową i podgląd elytry
+
 ## 0.8.2
 - Rozmiar interfejsu do wyboru w Ustawieniach – na dużych monitorach launcher sam się powiększa (skróty Ctrl +, Ctrl −, Ctrl 0)
 - Okna zamkniesz kliknięciem obok, klawiszem Esc albo przyciskiem ✕
