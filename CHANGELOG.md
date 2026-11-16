@@ -8,6 +8,12 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.9.1
+- Nowe kolory launchera
+- Dodatki i lista graczy online z twarzami pod nowymi przyciskami na pasku bocznym
+- Nowe okno „Moje mody”: większe, przejrzystsze i bez przeskakiwania przy zmianie zakładek
+- Okno skina otwiera się dużo szybciej
+
 ## 0.9.0
 - Nowy wygląd launchera: fioletowy motyw, pływający pasek boczny, ekran Start i osobny widok Aktualności
 - Ikony modów serwerowych w zakładce Zainstalowane
