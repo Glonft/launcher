@@ -26,16 +26,52 @@ function entries(buf) {
   return out;
 }
 
-function read(buf, list, name) {
+/** Zawartość pliku z archiwum jako Buffer (albo null). */
+function readBuf(buf, list, name) {
   const e = list.get(name);
   if (!e) return null;
   const lh = e.offset;
-  if (buf.readUInt32LE(lh) !== 0x04034b50) return null;
+  if (lh + 30 > buf.length || buf.readUInt32LE(lh) !== 0x04034b50) return null;
   const start = lh + 30 + buf.readUInt16LE(lh + 26) + buf.readUInt16LE(lh + 28);
   const data = buf.subarray(start, start + e.csize);
-  if (e.method === 0) return data.toString('utf8');
-  if (e.method === 8) return zlib.inflateRawSync(data).toString('utf8');
+  if (e.method === 0) return data;
+  if (e.method === 8) return zlib.inflateRawSync(data);
   return null;
+}
+
+function read(buf, list, name) {
+  const b = readBuf(buf, list, name);
+  return b ? b.toString('utf8') : null;
+}
+
+/** Ikona moda (PNG jako Buffer) wskazana w mods.toml (logoFile) lub fabric.mod.json (icon). */
+function modIcon(buf) {
+  const list = entries(buf);
+  let file = null;
+  const toml = read(buf, list, 'META-INF/neoforge.mods.toml') || read(buf, list, 'META-INF/mods.toml');
+  if (toml) {
+    const block = (toml.split(/^\s*\[\[mods\]\]\s*$/m)[1] || '').split(/^\s*\[/m)[0];
+    const re = /^\s*logoFile\s*=\s*(?:"([^"]*)"|'([^']*)')/m;
+    const m = block.match(re) || toml.match(re);
+    if (m) file = m[1] ?? m[2];
+  } else {
+    const j = read(buf, list, 'fabric.mod.json') || read(buf, list, 'quilt.mod.json');
+    if (j) {
+      try {
+        const o = JSON.parse(j);
+        let ic = o.icon || ((o.quilt_loader || {}).metadata || {}).icon;
+        if (ic && typeof ic === 'object') {
+          const k = Object.keys(ic).sort((a, b) => Math.abs(a - 64) - Math.abs(b - 64))[0];
+          ic = ic[k];
+        }
+        if (typeof ic === 'string') file = ic;
+      } catch { /* brak ikony */ }
+    }
+  }
+  if (!file) return null;
+  file = file.replace(/^\/+/, '');
+  const png = readBuf(buf, list, file) || readBuf(buf, list, `assets/${file}`);
+  return png && png.length > 8 && png.readUInt32BE(0) === 0x89504e47 ? png : null;
 }
 
 /** Proste wyciągnięcie wartości z pierwszego bloku [[mods]] w mods.toml. */
@@ -80,4 +116,4 @@ function modInfo(buf) {
   return { loader, id: info.id || null, name: info.name || info.id || null, version: info.version || null };
 }
 
-module.exports = { modInfo, entries };
+module.exports = { modInfo, modIcon, entries };

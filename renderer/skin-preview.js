@@ -77,7 +77,7 @@ class SkinPreview {
         const canvas = document.createElement('canvas');
         container.append(canvas);
         this.viewer = new lib.SkinViewer({ canvas, width: 240, height: 320 });
-        this.viewer.autoRotate = store.get('rotate', true);
+        this.viewer.autoRotate = false; // postać stoi w miejscu – obraca się tylko myszką
         this.viewer.autoRotateSpeed = 0.6;
         if (this.viewer.controls) {
           this.viewer.controls.enableZoom = true; // kółko myszy przybliża
@@ -89,7 +89,7 @@ class SkinPreview {
         if (this.viewer.cameraLight) this.viewer.cameraLight.intensity = 0.6;
         if ('fov' in this.viewer) this.viewer.fov = 45;
         this.elytra = store.get('elytra', false);
-        this.setAnimation(store.get('anim', 'walk'));
+        this.setAnimation('idle'); // spokojne „oddychanie”
         this.is3d = true;
         this.buildControls();
         return;
@@ -108,48 +108,26 @@ class SkinPreview {
   animations() { return ANIMS.filter(([, , cls]) => this.lib && typeof this.lib[cls] === 'function'); }
 
   setAnimation(key) {
-    const a = this.animations().find(([k]) => k === key) || this.animations().find(([k]) => k === 'walk');
+    const a = this.animations().find(([k]) => k === key);
     if (!a) { this.viewer.animation = null; this.anim = 'none'; return; }
     this.viewer.animation = new this.lib[a[2]]();
     if ('speed' in this.viewer.animation) this.viewer.animation.speed = a[3];
     this.anim = a[0];
-    store.set('anim', a[0]);
   }
 
-  /** Pasek pod podglądem: animacje, obracanie, elytra. */
+  /** Pod podglądem: tylko przełącznik elytry. */
   buildControls() {
-    const bar = document.createElement('div');
-    bar.className = 'skin-anim-bar';
-    const btns = [];
-    for (const [key, label] of this.animations()) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = `anim-chip${key === this.anim ? ' active' : ''}`;
-      b.textContent = label;
-      b.onclick = () => {
-        this.setAnimation(key);
-        btns.forEach((x) => x.classList.toggle('active', x === b));
-      };
-      btns.push(b);
-      bar.append(b);
-    }
-    const toggle = (label, get, set) => {
-      const l = document.createElement('label');
-      l.className = 'anim-toggle';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = get();
-      cb.onchange = () => set(cb.checked);
-      l.append(cb, ` ${label}`);
-      return l;
-    };
     const opts = document.createElement('div');
     opts.className = 'skin-anim-opts';
-    opts.append(
-      toggle('Obracanie', () => this.viewer.autoRotate, (v) => { this.viewer.autoRotate = v; store.set('rotate', v); }),
-      toggle('Elytra', () => this.elytra, (v) => { this.elytra = v; store.set('elytra', v); this.reloadCape(); }),
-    );
-    this.box.after(bar, opts);
+    const l = document.createElement('label');
+    l.className = 'anim-toggle';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = this.elytra;
+    cb.onchange = () => { this.elytra = cb.checked; store.set('elytra', cb.checked); this.reloadCape(); };
+    l.append(cb, ' Pokaż elytrę zamiast peleryny');
+    opts.append(l);
+    this.box.after(opts);
     const hint = document.getElementById('viewer-hint');
     if (hint) hint.textContent = 'Przeciągnij, żeby obrócić · kółko myszy przybliża';
   }

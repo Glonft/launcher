@@ -666,12 +666,12 @@ async function renderInstalled(box) {
   const packItems = installedCache.pack.filter((p) => match(p.name) || match(p.file)).map((p) => {
     const t = el('div', { className: 'mm-title', textContent: `🔒 ${p.name || p.file.replace(/\.jar$/i, '')}` });
     t.append(lock('z paczki serwera'));
-    return mmItem(null, t, [p.version, p.file].filter(Boolean).join(' · '), []);
+    return mmItem(p.icon || null, t, [p.version, p.file].filter(Boolean).join(' · '), []);
   });
   const addonItems = installedCache.addons.filter((a) => match(a.file)).map((a) => {
     const t = el('div', { className: 'mm-title', textContent: `🔒 ${a.file.replace(/\.jar$/i, '')}` });
     t.append(lock(`dodatek: ${a.addon}`));
-    return mmItem(null, t, 'Włączasz i wyłączasz w Ustawieniach → Dodatki', []);
+    return mmItem(a.icon || null, t, 'Włączasz i wyłączasz w Ustawieniach → Dodatki', []);
   });
   const myItems = mine.filter((m) => match(m.name)).map(playerModItem);
   $('mymods-list-title').textContent = `Zainstalowane mody (${installedCache.pack.length + installedCache.addons.length + mine.length})`;

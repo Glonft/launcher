@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, screen, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, screen, Menu, nativeImage } = require('electron');
+const { modIcon } = require('./src/jar');
 const path = require('path');
 const fs = require('fs');
 const { Client } = require('minecraft-launcher-core');
@@ -107,6 +108,33 @@ function applyZoom() {
 }
 
 /** Informacja dla adminów (zakładka Gracze w panelu). */
+/**
+ * Ikona moda z pliku .jar jako data: URL (64 px), zapamiętana w <gameDir>/.melinasmp-icons/<sha1>.png.
+ * Brak ikony zapamiętujemy pustym plikiem, żeby nie czytać jara za każdym razem.
+ */
+function jarIcon(dir, file, sha1) {
+  const iconDir = path.join(dir, '.melinasmp-icons');
+  const key = sha1 || file.replace(/[^\w.-]/g, '_');
+  const cache = path.join(iconDir, `${key}.png`);
+  try {
+    const c = fs.readFileSync(cache);
+    return c.length ? `data:image/png;base64,${c.toString('base64')}` : null;
+  } catch { /* jeszcze nie ma */ }
+  let png = null;
+  try {
+    const raw = modIcon(fs.readFileSync(path.join(dir, 'mods', file)));
+    if (raw) {
+      const img = nativeImage.createFromBuffer(raw);
+      if (!img.isEmpty()) {
+        const { width } = img.getSize();
+        png = (width > 64 ? img.resize({ width: 64, quality: 'best' }) : img).toPNG();
+      }
+    }
+  } catch { png = null; }
+  try { fs.mkdirSync(iconDir, { recursive: true }); fs.writeFileSync(cache, png || Buffer.alloc(0)); } catch { /* bez znaczenia */ }
+  return png ? `data:image/png;base64,${png.toString('base64')}` : null;
+}
+
 function hello(manifest, force) {
   try {
     const m = manifest || cachedManifest();
@@ -552,9 +580,11 @@ app.whenReady().then(() => {
     const m = cachedManifest();
     if (!m) return { pack: [], addons: [] };
     const dir = gameDir();
-    const pack = packModInfo(dir, m).filter((x) => fs.existsSync(path.join(dir, 'mods', x.file)));
+    const pack = packModInfo(dir, m).filter((x) => fs.existsSync(path.join(dir, 'mods', x.file)))
+      .map((x) => ({ ...x, icon: jarIcon(dir, x.file, x.sha1) }));
     const addonMods = enabledAddons(m, settings.get().addons || {})
-      .flatMap((g) => g.files.filter((f) => /^mods\/[^/]+\.jar$/i.test(f.path)).map((f) => ({ file: f.path.slice(5), addon: g.name })));
+      .flatMap((g) => g.files.filter((f) => /^mods\/[^/]+\.jar$/i.test(f.path))
+        .map((f) => ({ file: f.path.slice(5), addon: g.name, icon: jarIcon(dir, f.path.slice(5), f.sha1) })));
     return { pack, addons: addonMods };
   });
   ipcMain.handle('mymods:needIris', () => {
