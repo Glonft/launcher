@@ -242,6 +242,7 @@ async function openSkin() {
   try {
     skinData = await L.getSkin();
     $('skin-name').textContent = skinData.name;
+    preview.setName && preview.setName(skinData.name);
     setVariant(skinData.variant);
     renderCapes();
     refreshPreview();

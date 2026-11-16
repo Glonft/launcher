@@ -51,25 +51,47 @@ function drawCapeThumb(canvas, dataUrl) {
   img.src = dataUrl;
 }
 
+// Animacje podglądu (z biblioteki skinview3d, licencja MIT). Pokazujemy tylko te, które biblioteka ma.
+const ANIMS = [
+  ['idle', 'Spokój', 'IdleAnimation', 1],
+  ['walk', 'Chodzenie', 'WalkingAnimation', 0.6],
+  ['run', 'Bieganie', 'RunningAnimation', 0.7],
+  ['wave', 'Machanie', 'WaveAnimation', 1],
+  ['crouch', 'Kucanie', 'CrouchAnimation', 1],
+  ['hit', 'Uderzenie', 'HitAnimation', 1],
+  ['fly', 'Latanie', 'FlyingAnimation', 1],
+];
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(`skin-preview:${k}`); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(`skin-preview:${k}`, JSON.stringify(v)); } catch { /* bez znaczenia */ } },
+};
+
 class SkinPreview {
   constructor(container) {
     this.box = container;
     this.is3d = false;
-    const lib = window.skinview3d;
+    this.lib = window.skinview3d;
+    const lib = this.lib;
     if (lib && lib.SkinViewer) {
       try {
         const canvas = document.createElement('canvas');
         container.append(canvas);
         this.viewer = new lib.SkinViewer({ canvas, width: 240, height: 320 });
-        this.viewer.autoRotate = true;
+        this.viewer.autoRotate = store.get('rotate', true);
         this.viewer.autoRotateSpeed = 0.6;
-        if (this.viewer.controls) this.viewer.controls.enableZoom = false;
-        if ('zoom' in this.viewer) this.viewer.zoom = 0.85;
-        if (lib.WalkingAnimation) {
-          this.viewer.animation = new lib.WalkingAnimation();
-          this.viewer.animation.speed = 0.55;
+        if (this.viewer.controls) {
+          this.viewer.controls.enableZoom = true; // kółko myszy przybliża
+          this.viewer.controls.enablePan = false;
         }
+        if ('zoom' in this.viewer) this.viewer.zoom = 0.85;
+        // trochę ładniejsze światło
+        if (this.viewer.globalLight) this.viewer.globalLight.intensity = 3;
+        if (this.viewer.cameraLight) this.viewer.cameraLight.intensity = 0.6;
+        if ('fov' in this.viewer) this.viewer.fov = 45;
+        this.elytra = store.get('elytra', false);
+        this.setAnimation(store.get('anim', 'walk'));
         this.is3d = true;
+        this.buildControls();
         return;
       } catch (e) {
         console.warn('Podgląd 3D niedostępny, używam 2D:', e);
@@ -83,13 +105,76 @@ class SkinPreview {
     container.append(this.canvas);
   }
 
+  animations() { return ANIMS.filter(([, , cls]) => this.lib && typeof this.lib[cls] === 'function'); }
+
+  setAnimation(key) {
+    const a = this.animations().find(([k]) => k === key) || this.animations().find(([k]) => k === 'walk');
+    if (!a) { this.viewer.animation = null; this.anim = 'none'; return; }
+    this.viewer.animation = new this.lib[a[2]]();
+    if ('speed' in this.viewer.animation) this.viewer.animation.speed = a[3];
+    this.anim = a[0];
+    store.set('anim', a[0]);
+  }
+
+  /** Pasek pod podglądem: animacje, obracanie, elytra. */
+  buildControls() {
+    const bar = document.createElement('div');
+    bar.className = 'skin-anim-bar';
+    const btns = [];
+    for (const [key, label] of this.animations()) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `anim-chip${key === this.anim ? ' active' : ''}`;
+      b.textContent = label;
+      b.onclick = () => {
+        this.setAnimation(key);
+        btns.forEach((x) => x.classList.toggle('active', x === b));
+      };
+      btns.push(b);
+      bar.append(b);
+    }
+    const toggle = (label, get, set) => {
+      const l = document.createElement('label');
+      l.className = 'anim-toggle';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = get();
+      cb.onchange = () => set(cb.checked);
+      l.append(cb, ` ${label}`);
+      return l;
+    };
+    const opts = document.createElement('div');
+    opts.className = 'skin-anim-opts';
+    opts.append(
+      toggle('Obracanie', () => this.viewer.autoRotate, (v) => { this.viewer.autoRotate = v; store.set('rotate', v); }),
+      toggle('Elytra', () => this.elytra, (v) => { this.elytra = v; store.set('elytra', v); this.reloadCape(); }),
+    );
+    this.box.after(bar, opts);
+    const hint = document.getElementById('viewer-hint');
+    if (hint) hint.textContent = 'Przeciągnij, żeby obrócić · kółko myszy przybliża';
+  }
+
+  async reloadCape() {
+    if (!this.is3d) return;
+    try {
+      if (this.cape) await this.viewer.loadCape(this.cape, { backEquipment: this.elytra ? 'elytra' : 'cape' });
+      else this.viewer.loadCape(null);
+    } catch (e) { console.warn('Błąd peleryny:', e); }
+  }
+
+  /** Napis nad głową (nick). */
+  setName(name) {
+    if (!this.is3d || !('nameTag' in this.viewer)) return;
+    try { this.viewer.nameTag = name || null; } catch { /* starsza wersja biblioteki */ }
+  }
+
   async show(skinDataUrl, slim, capeDataUrl) {
     if (!this.is3d) return drawSkin2D(this.canvas, skinDataUrl, slim);
     try {
       if (skinDataUrl) await this.viewer.loadSkin(skinDataUrl, { model: slim ? 'slim' : 'default' });
       else if (this.viewer.resetSkin) this.viewer.resetSkin();
-      if (capeDataUrl) await this.viewer.loadCape(capeDataUrl);
-      else this.viewer.loadCape(null);
+      this.cape = capeDataUrl || null;
+      await this.reloadCape();
     } catch (e) {
       console.warn('Błąd podglądu 3D:', e);
     }
