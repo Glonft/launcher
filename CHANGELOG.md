@@ -14,6 +14,7 @@ Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 - Launcher nie przeskakuje już na środek ekranu przy zmianie dodatków i ustawień
 - Lista graczy otwiera się płynnie, bez migania
 - Poprawiony pasek przewijania w oknach
+- Okno skina na koncie premium otwiera się od razu – launcher loguje się w tle zaraz po starcie
 
 ## 0.9.1
 - Nowe kolory launchera

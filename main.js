@@ -35,6 +35,7 @@ let portableUpdater = null;
 const gb = (s) => parseFloat(String(s)) || 0; // "6G" -> 6
 const gameDir = () => settings.get().gameDir;
 
+let prefetchSkin = () => {};
 function send(channel, data) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, data);
 }
@@ -486,7 +487,7 @@ app.whenReady().then(() => {
   ipcMain.handle('accounts:get', () => accounts.state());
   ipcMain.handle('accounts:addOffline', (_e, name) => accounts.addOffline(name));
   ipcMain.handle('accounts:addMicrosoft', () => accounts.addMicrosoft());
-  ipcMain.handle('accounts:select', (_e, id) => accounts.select(id));
+  ipcMain.handle('accounts:select', (_e, id) => { const r = accounts.select(id); setTimeout(() => prefetchSkin(), 500); return r; });
   ipcMain.handle('accounts:remove', (_e, id) => accounts.remove(id));
 
   // ---- skin i peleryna ----
@@ -497,7 +498,21 @@ app.whenReady().then(() => {
 
   // Ostatnio wczytany wygląd konta premium – okno skina pokazuje go od razu, a świeży dociąga w tle.
   const skinCacheFile = (acc) => path.join(app.getPath('userData'), 'skins', `cache-${acc.id.replace(/[^a-z0-9_-]/gi, '_')}.json`);
-  const skinState = async ({ cached = false } = {}) => {
+  // Jedno pobieranie naraz – okno skina korzysta z tego, które już trwa (np. z logowania w tle po starcie).
+  let skinFetch = null;
+  const skinState = (opts = {}) => {
+    if (opts.cached) return skinStateRaw(opts);
+    if (!skinFetch) skinFetch = skinStateRaw(opts).finally(() => { skinFetch = null; });
+    return skinFetch;
+  };
+  prefetchSkin = () => {
+    const acc = activeAcc();
+    if (!acc || acc.type !== 'microsoft') return;
+    const t0 = Date.now();
+    skinState().then(() => log(`Konto premium zalogowane w tle, skin gotowy (${((Date.now() - t0) / 1000).toFixed(1)} s).`))
+      .catch(() => { /* okno skina pokaże błąd, jeśli coś jest nie tak */ });
+  };
+  const skinStateRaw = async ({ cached = false } = {}) => {
     const acc = activeAcc();
     if (!acc) throw new Error('Najpierw dodaj konto.');
     if (acc.type !== 'microsoft') {
@@ -736,7 +751,11 @@ app.whenReady().then(() => {
   let firstLoad = true;
   win.webContents.on('did-finish-load', () => {
     applyZoom();
-    if (firstLoad) { firstLoad = false; if (!win.isMaximized()) win.center(); } // na środek tylko przy starcie
+    if (firstLoad) {
+      firstLoad = false;
+      if (!win.isMaximized()) win.center(); // na środek tylko przy starcie
+      setTimeout(() => prefetchSkin(), 2500); // logowanie Microsoft w tle – okno skina będzie od razu gotowe
+    }
     send('winstate', { maximized: win.isMaximized() });
   });
   for (const ev of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) {
