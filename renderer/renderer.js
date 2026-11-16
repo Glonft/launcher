@@ -6,7 +6,7 @@ const el = (tag, props = {}, ...children) => {
   for (const c of children) n.append(c);
   return n;
 };
-const headUrl = (name) => `https://mc-heads.net/avatar/${encodeURIComponent(name)}/36`;
+const headUrl = (name, size = 36) => `https://mc-heads.net/avatar/${encodeURIComponent(name)}/${size}`;
 
 let appState = 'idle';
 let accountsState = { active: null, list: [] };
@@ -70,33 +70,24 @@ async function refreshStatus() {
     const r = await L.pingServer();
     if (r.server) showInfo({ server: r.server, news: null });
     const dot = $('status-dot');
-    const list = $('players-list');
-    list.replaceChildren();
+    $('players-badge').textContent = r.online && r.players.online ? String(r.players.online) : '';
     if (r.online) {
       dot.className = 'dot on';
       $('status-text').textContent = 'Online';
       dot.title = `Online${r.version ? ' – ' + r.version : ''}`;
       $('players-count').textContent = `${r.players.online}/${r.players.max}`;
       $('ping-ms').textContent = `${r.latency} ms`;
-      for (const name of r.players.names) {
-        const img = el('img', { src: headUrl(name), alt: '' });
-        img.onerror = () => img.remove();
-        list.append(el('span', { className: 'chip' }, img, name));
-      }
-      const hidden = r.players.online - r.players.names.length;
-      if (hidden > 0) list.append(el('span', { className: 'chip muted', textContent: `+${hidden} więcej` }));
-      if (r.players.online === 0) list.append(el('span', { className: 'muted small', textContent: 'Nikogo nie ma – bądź pierwszy!' }));
     } else {
       dot.className = 'dot off';
       dot.title = r.error || 'Offline';
       $('status-text').textContent = 'Offline';
       $('players-count').textContent = '–';
       $('ping-ms').textContent = '–';
-      list.append(el('span', { className: 'muted small', textContent: `Serwer offline${r.error ? ` (${r.error})` : ''}` }));
     }
   } catch (e) {
     $('status-dot').className = 'dot off';
     $('status-text').textContent = 'Offline';
+    $('players-badge').textContent = '';
   } finally {
     $('btn-ping').disabled = false;
   }
@@ -227,7 +218,27 @@ function renderCapes() {
   for (const c of skinData.capes) box.append(tile(c.id, c.name, c.dataUrl));
 }
 
+function applySkinData(data) {
+  skinData = data;
+  $('skin-name').textContent = data.name;
+  preview.setName && preview.setName(data.name);
+  setVariant(data.variant);
+  renderCapes();
+  refreshPreview();
+  $('skin-hint').textContent = data.offline
+    ? 'Konto non-premium: skin zobaczą wszyscy na serwerze MelinaSMP. Po kliknięciu „Zapisz zmiany” wkleisz w grze jedną komendę. Peleryny są dostępne tylko dla kont premium.'
+    : 'Zmiany dotyczą całego Twojego konta Minecraft (tak jak w oficjalnym launcherze). Na serwerze zobaczysz je po ponownym wejściu.';
+  $('btn-skin-reset').textContent = data.offline ? 'Przywróć domyślnego skina (komenda)' : 'Przywróć domyślnego skina';
+  showCommand(data.offline ? data.command : null);
+}
+function ensurePreview() {
+  if (preview) return;
+  preview = new SkinPreview($('skin-viewer'));
+  if (!preview.is3d) $('viewer-hint').textContent = 'Podgląd 2D (3D niedostępne)';
+}
+let skinSeq = 0;
 async function openSkin() {
+  const seq = ++skinSeq;
   pickedSkin = null;
   pickedCape = undefined;
   skinData = null;
@@ -238,26 +249,24 @@ async function openSkin() {
   $('capes').replaceChildren();
   $('skin-name').textContent = accountsState.active ? accountsState.active.name : '';
   $('skin-dialog').classList.remove('hidden');
-  if (!preview) {
-    preview = new SkinPreview($('skin-viewer'));
-    if (!preview.is3d) $('viewer-hint').textContent = 'Podgląd 2D (3D niedostępne)';
-  }
+  ensurePreview();
   try {
-    skinData = await L.getSkin();
-    $('skin-name').textContent = skinData.name;
-    preview.setName && preview.setName(skinData.name);
-    setVariant(skinData.variant);
-    renderCapes();
-    refreshPreview();
-    $('skin-hint').textContent = skinData.offline
-      ? 'Konto non-premium: skin zobaczą wszyscy na serwerze MelinaSMP. Po kliknięciu „Zapisz zmiany” wkleisz w grze jedną komendę. Peleryny są dostępne tylko dla kont premium.'
-      : 'Zmiany dotyczą całego Twojego konta Minecraft (tak jak w oficjalnym launcherze). Na serwerze zobaczysz je po ponownym wejściu.';
-    $('btn-skin-reset').textContent = skinData.offline ? 'Przywróć domyślnego skina (komenda)' : 'Przywróć domyślnego skina';
-    showCommand(skinData.offline ? skinData.command : null);
+    // 1) od razu ostatnio znany wygląd (konta premium), 2) świeży z serwerów Mojang w tle
+    const cached = await L.getSkin({ cached: true }).catch(() => null);
+    if (seq !== skinSeq) return;
+    if (cached) {
+      applySkinData(cached);
+      if (!cached.cached) { $('skin-status').textContent = ''; return; } // konto non-premium – to już jest aktualne
+      $('skin-status').textContent = 'Sprawdzam, czy coś się zmieniło…';
+    }
+    const fresh = await L.getSkin();
+    if (seq !== skinSeq || $('skin-dialog').classList.contains('hidden')) return;
+    // nie nadpisujemy, jeśli w międzyczasie wybrałeś inny skin albo pelerynę
+    if (!cached || (pickedSkin === null && pickedCape === undefined)) applySkinData(fresh);
     $('skin-status').textContent = '';
   } catch (e) {
     $('skin-status').textContent = '';
-    $('skin-error').textContent = cleanErr(e);
+    if (!skinData) $('skin-error').textContent = cleanErr(e);
   }
 }
 $('btn-skin-copy').onclick = async () => {
@@ -398,6 +407,9 @@ L.on('seed', (st) => {
   const box = $('seed-status');
   box.classList.toggle('hidden', !st);
   if (st) box.textContent = `W tle: ${st.name} – ${st.total ? Math.floor((st.done / st.total) * 100) : 0}% (${fmtBytes(st.done)}${st.total ? ` z ${fmtBytes(st.total)}` : ''})`;
+  $('addons-seed').classList.toggle('hidden', !st);
+  $('addons-dot').classList.toggle('hidden', !st);
+  if (st) $('addons-seed').textContent = `Pobieranie w tle: ${st.name} – ${st.total ? Math.floor((st.done / st.total) * 100) : 0}% (${fmtBytes(st.done)}${st.total ? ` z ${fmtBytes(st.total)}` : ''}). Możesz w tym czasie grać.`;
 });
 $('btn-update-start').onclick = async () => {
   try { await L.startUpdate(); } catch (e) { addLog('BŁĄD: ' + cleanErr(e)); }
@@ -428,6 +440,7 @@ function fmtBytes(n) {
   return `${Math.max(1, Math.round(n / 1e3))} KB`;
 }
 
+// ---------- dodatki (osobne okno z paska bocznego) ----------
 function renderAddons(optional, choices) {
   const box = $('addons-list');
   box.replaceChildren();
@@ -436,20 +449,88 @@ function renderAddons(optional, choices) {
     return;
   }
   for (const g of optional) {
-    const cb = el('input', { type: 'checkbox', checked: g.id in choices ? !!choices[g.id] : g.default });
-    cb.dataset.addon = g.id;
-    const info = el('div', {}, el('div', { textContent: g.name + (g.size ? `  ·  ${fmtBytes(g.size)}` : '') }),
-      el('div', { className: 'desc', textContent: g.description }));
+    const on = g.id in choices ? !!choices[g.id] : g.default;
+    const sw = el('input', { type: 'checkbox', className: 'switch', checked: on });
+    const info = el('div', { className: 'addon-info' },
+      el('div', { className: 'addon-name' }, g.name, g.size ? el('span', { className: 'mm-tag', textContent: fmtBytes(g.size) }) : ''),
+      el('div', { className: 'desc', textContent: g.description || '' }));
     if (g.replacesData) {
       info.append(el('div', { className: 'desc warn-text', textContent:
         'Zastąpi Twoje obecne dane tego dodatku (kopia zostanie zachowana jako plik .kopia). Pobiera się w tle – możesz grać w trakcie.' }));
     }
-    box.append(el('label', { className: 'addon check' }, cb, info));
+    sw.onchange = async () => {
+      $('addons-error').textContent = '';
+      sw.disabled = true;
+      try {
+        const { settings: cur } = await L.getSettings();
+        await L.saveSettings({ addons: { ...(cur.addons || {}), [g.id]: sw.checked } });
+        installedCache = null;
+      } catch (e) { sw.checked = !sw.checked; $('addons-error').textContent = cleanErr(e); }
+      finally { sw.disabled = false; }
+    };
+    box.append(el('label', { className: `addon-card${on ? ' on' : ''}` }, info, sw));
+    sw.addEventListener('change', () => sw.closest('.addon-card').classList.toggle('on', sw.checked));
   }
 }
+async function openAddons() {
+  $('addons-error').textContent = '';
+  const { settings: s, optional } = await L.getSettings();
+  renderAddons(optional, s.addons || {});
+  $('addons-dialog').classList.remove('hidden');
+}
+const closeAddons = () => $('addons-dialog').classList.add('hidden');
+$('btn-addons').onclick = openAddons;
+
+// ---------- gracze online ----------
+let playersTimer = null;
+async function loadPlayers() {
+  const box = $('players-full');
+  try {
+    const r = await L.getPlayers();
+    if (!r.online) {
+      $('players-total').textContent = '';
+      box.replaceChildren(el('p', { className: 'hint', textContent: `Serwer jest offline${r.error ? ` (${r.error})` : ''}.` }));
+      $('players-note').textContent = '';
+      return;
+    }
+    const p = r.players;
+    $('players-total').textContent = `${p.online}/${p.max}`;
+    $('players-badge').textContent = p.online ? String(p.online) : '';
+    if (!p.online) {
+      box.replaceChildren(el('p', { className: 'hint', textContent: 'Nikogo nie ma – bądź pierwszy!' }));
+    } else {
+      const names = [...p.names].sort((a, b) => a.localeCompare(b, 'pl', { sensitivity: 'base' }));
+      box.replaceChildren(...names.map((name) => {
+        const img = el('img', { src: headUrl(name, 64), alt: '' });
+        img.onerror = () => { img.replaceWith(el('div', { className: 'player-noface' })); };
+        return el('div', { className: 'player-card' }, img, el('span', { textContent: name }));
+      }));
+      const hidden = p.online - p.names.length;
+      if (hidden > 0) box.append(el('div', { className: 'player-card more', textContent: `i ${hidden} ${hidden === 1 ? 'inny' : 'innych'}` }));
+    }
+    $('players-note').textContent = '';
+  } catch (e) {
+    box.replaceChildren(el('p', { className: 'error', textContent: cleanErr(e) }));
+  }
+}
+async function openPlayers() {
+  $('players-full').replaceChildren(...Array.from({ length: 6 }, () => el('div', { className: 'player-card skel' })));
+  $('players-total').textContent = '';
+  $('players-dialog').classList.remove('hidden');
+  $('btn-players').classList.add('active');
+  await loadPlayers();
+  clearInterval(playersTimer);
+  playersTimer = setInterval(loadPlayers, 30 * 1000);
+}
+function closePlayers() {
+  clearInterval(playersTimer);
+  $('players-dialog').classList.add('hidden');
+  $('btn-players').classList.remove('active');
+}
+$('btn-players').onclick = openPlayers;
 
 async function openSettings() {
-  const { settings: s, system, optional } = await L.getSettings();
+  const { settings: s, system } = await L.getSettings();
   $('ram-max').max = system.maxAllowedRamGB;
   $('ram-max').value = s.maxRamGB;
   $('ram-min').value = s.minRamGB;
@@ -464,7 +545,6 @@ async function openSettings() {
   if (!$('ui-scale').value) $('ui-scale').value = 'auto';
   $('game-dir').value = s.gameDir;
   $('jvm-args').value = s.jvmArgs;
-  renderAddons(optional, s.addons || {});
   renderAccounts(await L.getAccounts());
   $('settings-error').textContent = '';
   hideDirChange();
@@ -474,8 +554,6 @@ async function openSettings() {
 
 let settingsSnapshot = null;
 function collectSettings() {
-  const addons = {};
-  for (const cb of document.querySelectorAll('[data-addon]')) addons[cb.dataset.addon] = cb.checked;
   return {
     maxRamGB: Number($('ram-max').value),
     minRamGB: Number($('ram-min').value),
@@ -485,7 +563,6 @@ function collectSettings() {
     afterLaunch: $('after-launch').value,
     jvmArgs: $('jvm-args').value,
     uiScale: $('ui-scale').value === 'auto' ? 'auto' : Number($('ui-scale').value),
-    addons,
   };
 }
 /** Zamknięcie ustawień kliknięciem obok / Esc / ✕ – pyta o niezapisane zmiany. */
@@ -589,6 +666,9 @@ async function init() {
   showInfo(await L.refreshInfo()); // świeże newsy/adres z sieci
   refreshStatus();
   setInterval(refreshStatus, 60 * 1000);
+  // podgląd 3D skina przygotowujemy w wolnej chwili, żeby pierwsze otwarcie okna było szybkie
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
+  idle(() => { try { ensurePreview(); } catch { /* spróbujemy przy otwarciu okna */ } });
 }
 init();
 
@@ -598,12 +678,16 @@ const fmtDl = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace('.', ',')} mln`
 let myMods = [];
 
 function mmItem(icon, title, sub, actions, cls = '', href = null) {
-  const pic = icon ? el('img', { src: icon, alt: '' }) : el('div', { className: 'mm-noicon' });
+  const pic = icon ? el('img', { src: icon, alt: '', loading: 'lazy' }) : el('div', { className: 'mm-noicon' });
+  if (icon) pic.onerror = () => pic.replaceWith(el('div', { className: 'mm-noicon' }));
   return el('div', { className: `mm-item ${cls}` },
     href ? el('a', { href, target: '_blank', title: 'Otwórz stronę na Modrinth' }, pic) : pic,
-    el('div', {}, title, el('div', { className: 'mm-sub', textContent: sub })),
+    el('div', { className: 'mm-text' }, title, el('div', { className: 'mm-sub', textContent: sub, title: sub })),
     el('div', { className: 'mm-actions' }, ...actions));
 }
+/** Szare „zarysy” kafelków na czas ładowania – lista nie zmienia wysokości. */
+const mmSkeleton = (n = 6) => Array.from({ length: n }, () => el('div', { className: 'mm-item skel' },
+  el('div', { className: 'mm-noicon' }), el('div', { className: 'mm-text' }, el('div', { className: 'skel-line w60' }), el('div', { className: 'skel-line w90' })), el('div', {})));
 function mmBtn(text, cls, fn) {
   const b = el('button', { className: cls, textContent: text });
   b.onclick = async () => {
@@ -626,9 +710,18 @@ async function refreshMyMods() {
   const box = $('mymods-list');
   if (mm.kind === 'installed') return renderInstalled(box);
   const mine = myMods.filter((m) => (m.kind || 'mod') === mm.kind);
-  $('mymods-list-title').textContent = MM_TEXT[mm.kind].list;
-  if (!mine.length) { box.replaceChildren(el('p', { className: 'hint', textContent: MM_TEXT[mm.kind].empty })); return; }
-  box.replaceChildren(...mine.map(playerModItem));
+  $('mymods-list-title').textContent = `${MM_TEXT[mm.kind].list} (${mine.length})`;
+  $('btn-mymods-updates').classList.toggle('hidden', !mine.length);
+  if (!mine.length) { box.replaceChildren(el('p', { className: 'hint mm-empty', textContent: MM_TEXT[mm.kind].empty })); return; }
+  const LIMIT = 4;
+  const shown = mm.showAll || mine.length <= LIMIT ? mine : mine.slice(0, LIMIT);
+  const items = shown.map(playerModItem);
+  if (shown.length < mine.length) {
+    const more = el('button', { className: 'link-btn mm-showall', textContent: `Pokaż wszystkie (${mine.length})` });
+    more.onclick = () => { mm.showAll = true; refreshMyMods(); };
+    items.push(more);
+  }
+  box.replaceChildren(...items);
 }
 
 function playerModItem(m) {
@@ -654,11 +747,16 @@ async function openMyMods() {
 }
 
 let installedCache = null;
-async function renderInstalled(box) {
+let installedLoading = null;
+/** Lista zainstalowanych: od razu z pamięci, a świeża dociąga się w tle. */
+async function renderInstalled(box, refresh = false) {
   const q = ($('mymods-installed-q').value || '').toLowerCase();
-  if (!installedCache) {
-    box.replaceChildren(el('p', { className: 'hint', textContent: 'Wczytuję…' }));
-    installedCache = await L.myModsInstalled();
+  if (!installedCache || refresh) {
+    if (!installedCache) box.replaceChildren(...mmSkeleton(8));
+    installedLoading = installedLoading || L.myModsInstalled().finally(() => { installedLoading = null; });
+    const fresh = await installedLoading;
+    if (mm.kind !== 'installed') { installedCache = fresh; return; }
+    installedCache = fresh;
   }
   const mine = myMods.filter((m) => (m.kind || 'mod') === 'mod');
   const match = (name) => !q || String(name || '').toLowerCase().includes(q);
@@ -671,10 +769,11 @@ async function renderInstalled(box) {
   const addonItems = installedCache.addons.filter((a) => match(a.file)).map((a) => {
     const t = el('div', { className: 'mm-title', textContent: `🔒 ${a.file.replace(/\.jar$/i, '')}` });
     t.append(lock(`dodatek: ${a.addon}`));
-    return mmItem(a.icon || null, t, 'Włączasz i wyłączasz w Ustawieniach → Dodatki', []);
+    return mmItem(a.icon || null, t, 'Włączasz i wyłączasz w oknie Dodatki (pasek boczny)', []);
   });
   const myItems = mine.filter((m) => match(m.name)).map(playerModItem);
   $('mymods-list-title').textContent = `Zainstalowane mody (${installedCache.pack.length + installedCache.addons.length + mine.length})`;
+  $('btn-mymods-updates').classList.toggle('hidden', !mine.length);
   const sec = (txt) => el('div', { className: 'mm-section', textContent: txt });
   if (!installedCache.pack.length && !mine.length) { box.replaceChildren(el('p', { className: 'hint', textContent: MM_TEXT.installed.empty })); return; }
   box.replaceChildren(
@@ -706,12 +805,14 @@ const MM_TEXT = {
   installed: { hint: 'Wszystkie mody, które masz w grze. Mody z kłódką dodała administracja serwera – są potrzebne do gry i nie da się ich usunąć. Swoje mody możesz wyłączać i usuwać.', list: 'Zainstalowane mody', q: '', empty: 'Brak informacji o modach – uruchom grę przynajmniej raz.' },
   resourcepack: { hint: 'Paczki tekstur zmieniają wygląd bloków, przedmiotów i interfejsu. Włączasz je w grze: Opcje → Paczki zasobów.', list: 'Twoje paczki tekstur', q: 'Szukaj paczek tekstur, np. Faithful, Fresh Animations…', empty: 'Nie masz jeszcze paczek tekstur.' },
 };
-const mm = { kind: 'mod', cat: '', offset: 0, total: 0, seq: 0 };
+const mm = { kind: 'mod', cat: '', offset: 0, total: 0, seq: 0, showAll: false, state: {} };
+/** Stan każdej zakładki: kategoria, wpisane wyszukiwanie i ostatnie wyniki – po powrocie wszystko jest od razu. */
+const mmState = (kind) => (mm.state[kind] = mm.state[kind] || { cat: '', q: '', hits: null, total: 0, offset: 0, at: 0, key: '' });
 
 function renderCats() {
   $('mymods-cats').replaceChildren(...MM_CATS[mm.kind].map(([id, label]) => {
     const b = el('button', { className: `mm-cat${mm.cat === id ? ' active' : ''}`, textContent: label });
-    b.onclick = () => { mm.cat = id; renderCats(); searchMyMods(); };
+    b.onclick = () => { mm.cat = id; mmState(mm.kind).cat = id; renderCats(); searchMyMods(); };
     return b;
   }));
 }
@@ -719,9 +820,9 @@ function renderCats() {
 const mrLink = (id, text) => el('a', { href: `https://modrinth.com/project/${encodeURIComponent(id)}`, target: '_blank', className: 'mm-link', textContent: text, title: 'Otwórz stronę na Modrinth' });
 
 function modResult(h, have) {
-  const t = el('div', { className: 'mm-title' }, mrLink(h.id, h.title));
+  const t = el('div', { className: 'mm-title' }, mrLink(h.id, h.title), el('span', { className: 'mm-tag', textContent: `⬇ ${fmtDl(h.downloads)}` }));
   if (h.needsServer || h.serverOnly) t.append(el('span', { className: 'mm-tag disk', textContent: h.serverOnly ? 'tylko serwer' : 'wymaga serwera' }));
-  return mmItem(h.icon, t, `${h.description} · ${fmtDl(h.downloads)} pobrań`,
+  return mmItem(h.icon, t, h.description || '',
     [have.has(h.id) ? el('span', { className: 'mm-tag', textContent: 'dodany' }) : mmBtn('Dodaj', 'primary-sm', async () => {
       if (h.kind === 'shader' && await L.myModsNeedIris()) {
         if (!confirm('Shadery działają tylko z modem Iris. Dodać Iris do Twoich modów?')) return;
@@ -742,27 +843,46 @@ function modResult(h, have) {
     })], '', `https://modrinth.com/project/${encodeURIComponent(h.id)}`);
 }
 
-/** Szukanie / przeglądanie; more = dociągnij kolejną stronę. */
-async function searchMyMods(more = false) {
+function renderResults(hits, append = false) {
+  const box = $('mymods-results');
+  const have = new Set(myMods.map((m) => m.projectId));
+  const items = hits.map((h) => { const it = modResult(h, have); it.dataset.id = h.id; return it; });
+  if (!append) {
+    if (!items.length) { box.replaceChildren(el('p', { className: 'hint mm-empty', textContent: 'Nic nie znaleziono. Spróbuj innej nazwy (najlepiej po angielsku) albo innej kategorii.' })); return; }
+    box.replaceChildren(...items);
+  } else box.append(...items);
+}
+function resultsTitle(q) {
+  const cat = (MM_CATS[mm.kind] || []).find(([id]) => id === mm.cat);
+  const where = { mod: 'mody', shader: 'shadery', resourcepack: 'paczki tekstur' }[mm.kind] || '';
+  $('mymods-results-title').textContent = q ? `Wyniki dla „${q}”` : `Popularne ${where} w Modrinth${cat && cat[0] ? ` · ${cat[1]}` : ''}`;
+}
+
+/** Szukanie / przeglądanie; more = dociągnij kolejną stronę. Wyniki zapamiętujemy dla każdej zakładki. */
+async function searchMyMods(more = false, { quiet = false } = {}) {
   const q = $('mymods-q').value.trim();
   const box = $('mymods-results');
+  const st = mmState(mm.kind);
   const seq = ++mm.seq;
   $('mymods-msg').textContent = '';
-  if (!more) { mm.offset = 0; box.replaceChildren(el('p', { className: 'hint', textContent: 'Wczytuję…' })); }
+  st.q = q;
+  resultsTitle(q);
+  const sort = q && $('mymods-sort').dataset.touched !== '1' ? 'relevance' : $('mymods-sort').value;
+  const key = `${q}|${mm.cat}|${sort}`;
+  if (!more) {
+    mm.offset = 0;
+    if (!quiet) box.replaceChildren(...mmSkeleton(6));
+  }
   $('btn-mymods-more').classList.add('hidden');
   try {
-    const sort = q && !more && $('mymods-sort').dataset.touched !== '1' ? 'relevance' : $('mymods-sort').value;
-    const r = await L.myModsSearch(q, { kind: mm.kind, category: mm.cat, sort, offset: mm.offset });
+    const r = await L.myModsSearch(q, { kind: mm.kind, category: mm.cat, sort, offset: more ? mm.offset : 0 });
     if (seq !== mm.seq) return; // w międzyczasie kliknięto coś innego
     mm.total = r.total;
-    mm.offset += r.hits.length;
-    const have = new Set(myMods.map((m) => m.projectId));
-    const items = r.hits.map((h) => { const it = modResult(h, have); it.dataset.id = h.id; return it; });
-    if (!more) box.replaceChildren();
-    if (!items.length && !more) box.append(el('p', { className: 'hint', textContent: 'Nic nie znaleziono. Spróbuj innej nazwy (najlepiej po angielsku) albo innej kategorii.' }));
-    box.append(...items);
+    if (more) { st.hits = [...(st.hits || []), ...r.hits]; mm.offset += r.hits.length; } else { st.hits = r.hits; mm.offset = r.hits.length; }
+    Object.assign(st, { total: r.total, offset: mm.offset, at: Date.now(), key });
+    renderResults(r.hits, more);
     $('btn-mymods-more').classList.toggle('hidden', mm.offset >= mm.total || !r.hits.length);
-  } catch (e) { if (!more) box.replaceChildren(); $('mymods-msg').textContent = cleanErr(e); }
+  } catch (e) { if (!more && !quiet) box.replaceChildren(); $('mymods-msg').textContent = cleanErr(e); }
 }
 
 async function addMyModFiles(paths) {
@@ -779,25 +899,44 @@ async function addMyModFiles(paths) {
 
 $('btn-mymods').onclick = openMyMods;
 function setMmKind(kind) {
+  if (mm.kind !== kind) mm.showAll = false;
   mm.kind = kind;
-  mm.cat = '';
+  const st = mmState(kind);
+  mm.cat = st.cat;
   for (const b of $('mymods-tabs').querySelectorAll('button')) b.classList.toggle('active', b.dataset.kind === kind);
   $('mymods-hint').textContent = MM_TEXT[kind].hint;
+  $('mymods-hint').classList.remove('open');
+  $('mymods-hint-more').textContent = 'więcej';
   const installed = kind === 'installed';
+  $('mymods-dialog').classList.toggle('mm-installed', installed);
   for (const e of document.querySelectorAll('.mm-browse')) e.classList.toggle('hidden', installed);
-  $('mymods-installed-q').classList.toggle('hidden', !installed);
+  for (const e of document.querySelectorAll('.mm-installed-only')) e.classList.toggle('hidden', !installed);
+  $('mymods-updates').replaceChildren();
+  $('mm-scroll').scrollTop = 0;
   if (installed) {
-    installedCache = null;
     $('mymods-installed-q').value = '';
-    refreshMyMods().catch((e) => { $('mymods-msg').textContent = cleanErr(e); });
+    const had = !!installedCache;
+    refreshMyMods().then(() => had && renderInstalled($('mymods-list'), true)).catch((e) => { $('mymods-msg').textContent = cleanErr(e); });
     return;
   }
   $('mymods-q').placeholder = MM_TEXT[kind].q;
-  $('mymods-q').value = '';
+  $('mymods-q').value = st.q;
   renderCats();
   refreshMyMods().catch(() => {});
-  searchMyMods();
+  if (st.hits) {
+    // od razu pokazujemy zapamiętane wyniki; po 3 minutach odświeżamy je po cichu w tle
+    mm.offset = st.offset;
+    mm.total = st.total;
+    resultsTitle(st.q);
+    renderResults(st.hits);
+    $('btn-mymods-more').classList.toggle('hidden', mm.offset >= mm.total);
+    if (Date.now() - st.at > 3 * 60 * 1000) searchMyMods(false, { quiet: true });
+  } else searchMyMods();
 }
+$('mymods-hint-more').onclick = () => {
+  const open = $('mymods-hint').classList.toggle('open');
+  $('mymods-hint-more').textContent = open ? 'mniej' : 'więcej';
+};
 $('mymods-installed-q').addEventListener('input', () => renderInstalled($('mymods-list')));
 for (const b of $('mymods-tabs').querySelectorAll('button')) b.onclick = () => setMmKind(b.dataset.kind);
 const closeMyMods = () => $('mymods-dialog').classList.add('hidden');
@@ -837,6 +976,8 @@ refreshMyMods().catch(() => {});
 const OVERLAY_CLOSE = {
   'add-account': () => closeAddAccount(),
   'mymods-dialog': () => closeMyMods(),
+  'addons-dialog': () => closeAddons(),
+  'players-dialog': () => closePlayers(),
   'skin-dialog': () => closeSkin(),
   changes: () => $('btn-changes-close').click(),
   settings: () => closeSettingsSafely(),

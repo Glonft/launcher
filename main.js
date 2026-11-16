@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, screen, Menu, nativeImage } = require('electron');
 const { modIcon } = require('./src/jar');
+const { queryFull } = require('./src/query');
 const path = require('path');
 const fs = require('fs');
 const { Client } = require('minecraft-launcher-core');
@@ -449,6 +450,21 @@ app.whenReady().then(() => {
     const srv = serverFrom(cachedManifest());
     return { server: srv, ...(await pingServer(srv.host, srv.port)) };
   });
+  // Lista graczy: najpierw Query (pełna lista), a gdy serwer go nie ma – zwykły status (do ~12 nicków).
+  let queryDeadUntil = 0;
+  ipcMain.handle('server:players', async () => {
+    const srv = serverFrom(cachedManifest());
+    if (Date.now() > queryDeadUntil) {
+      try {
+        const q = await queryFull(srv.host, srv.port);
+        return { online: true, full: true, players: { online: q.online, max: q.max, names: q.names } };
+      } catch {
+        queryDeadUntil = Date.now() + 10 * 60 * 1000; // nie męczymy co chwilę – spróbujemy za 10 minut
+      }
+    }
+    const r = await pingServer(srv.host, srv.port);
+    return { online: !!r.online, full: false, players: r.players || { online: 0, max: 0, names: [] }, error: r.error || null };
+  });
 
   ipcMain.handle('accounts:get', () => accounts.state());
   ipcMain.handle('accounts:addOffline', (_e, name) => accounts.addOffline(name));
@@ -462,30 +478,42 @@ app.whenReady().then(() => {
   const offlineSkinFile = (acc) => path.join(app.getPath('userData'), 'skins', `${acc.id.replace(/[^a-z0-9_-]/gi, '_')}.json`);
   const readOfflineSkin = (acc) => { try { return JSON.parse(fs.readFileSync(offlineSkinFile(acc), 'utf8')); } catch { return {}; } };
 
-  const skinState = async () => {
+  // Ostatnio wczytany wygląd konta premium – okno skina pokazuje go od razu, a świeży dociąga w tle.
+  const skinCacheFile = (acc) => path.join(app.getPath('userData'), 'skins', `cache-${acc.id.replace(/[^a-z0-9_-]/gi, '_')}.json`);
+  const skinState = async ({ cached = false } = {}) => {
     const acc = activeAcc();
     if (!acc) throw new Error('Najpierw dodaj konto.');
     if (acc.type !== 'microsoft') {
       const o = readOfflineSkin(acc);
       return { name: acc.name, offline: true, variant: o.variant || 'classic', dataUrl: o.dataUrl || null, capes: [], command: o.command || null };
     }
-    const token = await accounts.getMinecraftToken();
-    const p = await skin.getProfile(token);
-    const capes = [];
-    for (const c of p.capes) {
-      try { capes.push({ id: c.id, name: c.name, active: c.active, dataUrl: await skin.toDataUrl(c.url) }); }
-      catch { /* pojedyncza peleryna się nie wczytała – pomijamy */ }
+    if (cached) {
+      try { return { ...JSON.parse(fs.readFileSync(skinCacheFile(acc), 'utf8')), cached: true }; } catch { return null; }
     }
-    return {
+    let p;
+    try {
+      p = await skin.getProfile(await accounts.getMinecraftToken());
+    } catch {
+      accounts.forgetSession(); // token mógł wygasnąć po stronie Mojang – logujemy się raz jeszcze
+      p = await skin.getProfile(await accounts.getMinecraftToken());
+    }
+    // skin i wszystkie peleryny pobieramy naraz, nie po kolei
+    const [skinUrl, ...capeUrls] = await Promise.all([
+      p.skin ? skin.toDataUrl(p.skin.url).catch(() => null) : null,
+      ...p.capes.map((c) => skin.toDataUrl(c.url).catch(() => null)),
+    ]);
+    const state = {
       name: p.name,
       offline: false,
       variant: p.skin ? p.skin.variant : 'classic',
-      dataUrl: p.skin ? await skin.toDataUrl(p.skin.url) : null,
-      capes,
+      dataUrl: skinUrl,
+      capes: p.capes.map((c, i) => ({ id: c.id, name: c.name, active: c.active, dataUrl: capeUrls[i] })).filter((c) => c.dataUrl),
       command: null,
     };
+    try { fs.mkdirSync(path.dirname(skinCacheFile(acc)), { recursive: true }); fs.writeFileSync(skinCacheFile(acc), JSON.stringify(state)); } catch { /* bez znaczenia */ }
+    return state;
   };
-  ipcMain.handle('skin:get', () => skinState());
+  ipcMain.handle('skin:get', (_e, opts) => skinState(opts || {}));
   ipcMain.handle('skin:pick', async () => {
     const r = await dialog.showOpenDialog(win, {
       title: 'Wybierz plik skina (PNG 64×64)',
@@ -673,7 +701,7 @@ app.whenReady().then(() => {
     resizable: false,
     title: config.appName,
     icon: path.join(__dirname, 'renderer', 'logo.png'),
-    backgroundColor: '#120e1f',
+    backgroundColor: '#110f15',
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
   });

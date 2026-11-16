@@ -114,10 +114,14 @@ class AccountStore {
     return d.list.find((x) => x.id === d.active) || d.list[0] || null;
   }
 
-  /** Świeża sesja Minecraft dla konta Microsoft (trzymana w pamięci ok. 10 minut). */
+  /**
+   * Sesja Minecraft dla konta Microsoft. Token Minecrafta jest ważny 24 h, więc trzymamy go w pamięci
+   * do 20 h (osobno dla każdego konta) – nie logujemy się od nowa przy każdym otwarciu skina.
+   */
   async _msSession(a) {
-    const c = this._cache;
-    if (c && c.id === a.id && Date.now() - c.at < 10 * 60 * 1000) return c.mc;
+    this._sessions = this._sessions || new Map();
+    const c = this._sessions.get(a.id);
+    if (c && Date.now() - c.at < 20 * 60 * 60 * 1000) return c.mc;
     let xbox;
     try {
       xbox = await this._auth().refresh(this._dec(a));
@@ -129,7 +133,7 @@ class AccountStore {
     const updated = { ...a, name: mc.profile.name, ...this._enc(xbox.save()) };
     d.list = d.list.map((x) => (x.id === a.id ? updated : x)); // bez zmiany aktywnego konta
     this._write(d);
-    this._cache = { id: a.id, at: Date.now(), mc };
+    this._sessions.set(a.id, { at: Date.now(), mc });
     return mc;
   }
 
@@ -139,6 +143,12 @@ class AccountStore {
     if (!a) throw new Error('Najpierw dodaj konto.');
     if (a.type === 'offline') return Authenticator.getAuth(a.name);
     return (await this._msSession(a)).mclc();
+  }
+
+  /** Zapomina zapamiętaną sesję aktywnego konta (np. gdy serwer odrzucił token). */
+  forgetSession() {
+    const a = this._activeRaw();
+    if (a && this._sessions) this._sessions.delete(a.id);
   }
 
   /** Token API Minecraft aktywnego konta Microsoft (do zmiany skina). */

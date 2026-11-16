@@ -11,7 +11,9 @@
     <nav class="rail" aria-label="Menu">
       <button id="nav-home" class="rail-btn active" title="Start" aria-label="Start"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.3 3.3a1 1 0 0 1 1.4 0l8 7.6A1 1 0 0 1 20 12.6h-1V20a1 1 0 0 1-1 1h-3.5v-5.5h-5V21H6a1 1 0 0 1-1-1v-7.4H4a1 1 0 0 1-.7-1.7z"/></svg></button>
       <button id="btn-mymods" class="rail-btn" title="Moje mody" aria-label="Moje mody"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4.5" width="16" height="4" rx="2"/><rect x="4" y="10" width="16" height="4" rx="2"/><rect x="4" y="15.5" width="16" height="4" rx="2"/></svg><span id="mymods-count" class="rail-badge"></span></button>
+      <button id="btn-addons" class="rail-btn" title="Dodatki" aria-label="Dodatki"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5"/><path d="M12 12v9"/></svg><span id="addons-dot" class="rail-dot hidden"></span></button>
       <button id="nav-news" class="rail-btn" title="Aktualności" aria-label="Aktualności"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="5" rx="1.5"/><rect x="3.5" y="12" width="7" height="8" rx="1.5"/><rect x="13.5" y="12" width="7" height="3" rx="1.2"/><rect x="13.5" y="17" width="7" height="3" rx="1.2"/></svg></button>
+      <button id="btn-players" class="rail-btn" title="Gracze online" aria-label="Gracze online"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></svg><span id="players-badge" class="rail-badge"></span></button>
       <div class="rail-space"></div>
       <button id="btn-settings" class="rail-btn" title="Ustawienia" aria-label="Ustawienia"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
       <button id="btn-skin" class="rail-avatar" title="Skin i peleryna" aria-label="Skin i peleryna"><span id="rail-head" class="rail-head"></span></button>
@@ -65,7 +67,6 @@
               <div class="stat"><span class="stat-label">Gracze</span><span id="players-count" class="stat-val">–</span></div>
               <div class="stat"><span class="stat-label">Ping</span><span id="ping-ms" class="stat-val">–</span></div>
             </div>
-            <div id="players-list" class="players"></div>
             <div class="play-row">
               <button id="btn-play" class="play" disabled><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg><span id="play-label">Graj</span></button>
               <div class="more-wrap">
@@ -129,37 +130,73 @@
   <!-- Moje mody -->
   <div id="mymods-dialog" class="overlay hidden">
     <div class="panel mymods-panel">
-      <h2>Moje mody</h2>
-      <div id="mymods-tabs" class="mm-tabs">
-        <button data-kind="mod" class="active">Mody</button>
-        <button data-kind="shader">Shadery</button>
-        <button data-kind="resourcepack">Paczki tekstur</button>
-        <button data-kind="installed">Zainstalowane</button>
+      <div class="mm-head">
+        <h2>Moje mody</h2>
+        <div id="mymods-tabs" class="mm-tabs">
+          <button data-kind="mod" class="active">Mody</button>
+          <button data-kind="shader">Shadery</button>
+          <button data-kind="resourcepack">Paczki tekstur</button>
+          <button data-kind="installed">Zainstalowane</button>
+        </div>
+        <div class="mm-hint-row">
+          <p id="mymods-hint" class="mm-hint"></p>
+          <button id="mymods-hint-more" class="link-btn">więcej</button>
+        </div>
       </div>
-      <p id="mymods-hint" class="hint">Mody tylko dla Ciebie, np. minimapa, zoom albo lepsze dźwięki. Mody oznaczone „wymaga serwera” muszą być też na serwerze – bez tego możesz nie wejść do gry.</p>
-      <div class="row mm-browse">
-        <input id="mymods-q" placeholder="Szukaj w Modrinth, np. minimap, zoom, sound…">
-        <button id="btn-mymods-search" class="primary-sm">Szukaj</button>
+      <div class="mm-body">
+        <aside class="mm-side mm-browse">
+          <div class="mm-side-label">Sortuj</div>
+          <select id="mymods-sort" title="Sortowanie">
+            <option value="downloads">Najpopularniejsze</option>
+            <option value="newest">Najnowsze</option>
+            <option value="updated">Ostatnio zaktualizowane</option>
+          </select>
+          <div class="mm-side-label">Kategorie</div>
+          <div id="mymods-cats" class="mm-cats"></div>
+          <div id="mymods-drop" class="mymods-drop">Przeciągnij tutaj plik <b>.jar</b> lub <b>.zip</b><br>albo <a href="#" id="btn-mymods-file">wybierz z dysku</a></div>
+        </aside>
+        <div class="mm-main">
+          <div class="mm-searchbar mm-browse">
+            <input id="mymods-q" placeholder="Szukaj w Modrinth, np. minimap, zoom, sound…">
+            <button id="btn-mymods-search" class="primary-sm">Szukaj</button>
+          </div>
+          <div class="mm-searchbar mm-installed-only hidden">
+            <input id="mymods-installed-q" placeholder="Szukaj wśród zainstalowanych modów…">
+          </div>
+          <div id="mm-scroll" class="mm-scroll">
+            <div class="mm-section-head">
+              <h3 id="mymods-list-title">Twoje mody</h3>
+              <button id="btn-mymods-updates" class="ghost-sm">Sprawdź aktualizacje</button>
+            </div>
+            <div id="mymods-updates"></div>
+            <div id="mymods-list" class="mymods-list"></div>
+            <div class="mm-section-head mm-browse"><h3 id="mymods-results-title">Popularne w Modrinth</h3></div>
+            <div id="mymods-results" class="mymods-results mm-browse"></div>
+            <div class="center-text mm-browse"><button id="btn-mymods-more" class="small-btn hidden">Pokaż więcej</button></div>
+          </div>
+          <p id="mymods-msg" class="hint mm-msg"></p>
+        </div>
       </div>
-      <div class="row mm-filters mm-browse">
-        <div id="mymods-cats" class="mm-cats"></div>
-        <select id="mymods-sort" title="Sortowanie">
-          <option value="downloads">Najpopularniejsze</option>
-          <option value="newest">Najnowsze</option>
-          <option value="updated">Ostatnio zaktualizowane</option>
-        </select>
-      </div>
-      <div id="mymods-results" class="mymods-results mm-scroll mm-browse"></div>
-      <div class="center-text mm-browse"><button id="btn-mymods-more" class="small-btn hidden">Pokaż więcej</button></div>
-      <div id="mymods-drop" class="mymods-drop mm-browse">Przeciągnij tutaj plik .jar (mod) albo .zip (shader, paczka tekstur) albo <a href="#" id="btn-mymods-file">wybierz z dysku</a></div>
-      <div class="row between">
-        <h3 id="mymods-list-title">Twoje mody</h3>
-        <button id="btn-mymods-updates" class="small-btn">Sprawdź aktualizacje</button>
-      </div>
-      <div id="mymods-updates"></div>
-      <input id="mymods-installed-q" class="hidden" placeholder="Szukaj wśród zainstalowanych modów…">
-      <div id="mymods-list" class="mymods-list"></div>
-      <p id="mymods-msg" class="hint"></p>
+    </div>
+  </div>
+
+  <!-- Dodatki -->
+  <div id="addons-dialog" class="overlay hidden">
+    <div class="panel addons-panel">
+      <h2>Dodatki</h2>
+      <p class="hint">Dodatkowe pliki od administracji, które możesz włączyć, jeśli chcesz. Zmiany zadziałają przy najbliższym kliknięciu „Graj”.</p>
+      <div id="addons-list"></div>
+      <p id="addons-seed" class="hint addons-seed hidden"></p>
+      <p id="addons-error" class="error"></p>
+    </div>
+  </div>
+
+  <!-- Gracze -->
+  <div id="players-dialog" class="overlay hidden">
+    <div class="panel players-panel">
+      <h2>Gracze online <span id="players-total" class="muted players-total"></span></h2>
+      <div id="players-full" class="players-grid"></div>
+      <p id="players-note" class="hint"></p>
     </div>
   </div>
 
@@ -258,9 +295,6 @@
         <option value="keep">Zostaw launcher otwarty</option>
         <option value="close">Zamknij launcher</option>
       </select>
-
-      <h3>Dodatki</h3>
-      <div id="addons-list"></div>
 
       <h3>Konta</h3>
       <div id="accounts-list"></div>

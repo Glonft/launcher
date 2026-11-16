@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('launcher', {
   getChangelog: () => invoke('changelog:get'),
   refreshInfo: () => invoke('info:refresh'),
   pingServer: () => invoke('server:ping'),
+  getPlayers: () => invoke('server:players'),
 
   getAccounts: () => invoke('accounts:get'),
   addOffline: (name) => invoke('accounts:addOffline', name),
@@ -14,7 +15,7 @@ contextBridge.exposeInMainWorld('launcher', {
   selectAccount: (id) => invoke('accounts:select', id),
   removeAccount: (id) => invoke('accounts:remove', id),
 
-  getSkin: () => invoke('skin:get'),
+  getSkin: (opts) => invoke('skin:get', opts),
   pickSkin: () => invoke('skin:pick'),
   setSkin: (file, variant) => invoke('skin:set', file, variant),
   resetSkin: () => invoke('skin:reset'),
