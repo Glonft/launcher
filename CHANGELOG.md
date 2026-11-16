@@ -8,6 +8,11 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.9.0
+- Nowy wygląd launchera: fioletowy motyw, pływający pasek boczny, ekran Start i osobny widok Aktualności
+- Ikony modów serwerowych w zakładce Zainstalowane
+- Prostszy podgląd skina: postać stoi spokojnie, obracasz ją myszką
+
 ## 0.8.3
 - Serwer MelinaSMP jest teraz widoczny na liście serwerów w grze – po wyjściu wrócisz jednym kliknięciem
 - „Moje mody” → nowa zakładka „Zainstalowane” ze wszystkimi modami w grze

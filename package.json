@@ -1,7 +1,7 @@
 {
   "name": "melinasmp-launcher",
   "productName": "MelinaSMP Launcher",
-  "version": "0.8.3",
+  "version": "0.9.0",
   "description": "MelinaSMP Launcher",
   "main": "main.js",
   "scripts": {
