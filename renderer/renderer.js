@@ -50,17 +50,16 @@ function showInfo(info) {
     if (info.requiredLauncher) L.getUpdate().then(showUpdate).catch(() => {});
   }
   if (!Array.isArray(info.news)) return;
-  const list = $('news-list');
-  list.replaceChildren();
-  if (!info.news || !info.news.length) {
-    list.append(el('p', { className: 'muted', textContent: 'Brak aktualności.' }));
-    return;
-  }
-  for (const n of info.news) {
-    const h = el('h4');
-    if (n.date) h.append(el('span', { className: 'date', textContent: n.date }));
-    h.append(n.title || '');
-    list.append(el('div', { className: 'news-item' }, h, el('p', { textContent: n.body || '' })));
+  for (const id of ['news-list', 'news-full']) {
+    const list = $(id);
+    list.replaceChildren();
+    if (!info.news.length) { list.append(el('p', { className: 'muted', textContent: 'Brak aktualności.' })); continue; }
+    for (const n of info.news) {
+      const item = el('div', { className: 'news-item' });
+      if (n.date) item.append(el('span', { className: 'date', textContent: n.date }));
+      item.append(el('h4', { textContent: n.title || '' }), el('p', { textContent: n.body || '' }));
+      list.append(item);
+    }
   }
 }
 
@@ -75,6 +74,7 @@ async function refreshStatus() {
     list.replaceChildren();
     if (r.online) {
       dot.className = 'dot on';
+      $('status-text').textContent = 'Online';
       dot.title = `Online${r.version ? ' – ' + r.version : ''}`;
       $('players-count').textContent = `${r.players.online}/${r.players.max}`;
       $('ping-ms').textContent = `${r.latency} ms`;
@@ -89,12 +89,14 @@ async function refreshStatus() {
     } else {
       dot.className = 'dot off';
       dot.title = r.error || 'Offline';
+      $('status-text').textContent = 'Offline';
       $('players-count').textContent = '–';
       $('ping-ms').textContent = '–';
       list.append(el('span', { className: 'muted small', textContent: `Serwer offline${r.error ? ` (${r.error})` : ''}` }));
     }
   } catch (e) {
     $('status-dot').className = 'dot off';
+    $('status-text').textContent = 'Offline';
   } finally {
     $('btn-ping').disabled = false;
   }
@@ -115,6 +117,7 @@ function renderAccounts(state) {
   const av = $('avatar');
   av.textContent = '';
   av.style.backgroundImage = `url("${headUrl(a.name)}")`;
+  $('rail-head').style.backgroundImage = `url("${headUrl(a.name)}")`;
 
   const sel = $('account-select');
   sel.replaceChildren();
@@ -330,10 +333,11 @@ $('btn-skin-reset').onclick = async (e) => {
 // ---------- granie ----------
 function updatePlayButton() {
   const b = $('btn-play');
-  const labels = { idle: 'GRAJ', preparing: 'PRZYGOTOWANIE…', running: 'GRA URUCHOMIONA', busy: 'PROSZĘ CZEKAĆ…' };
-  b.textContent = labels[appState] || 'GRAJ';
+  const labels = { idle: 'Graj', preparing: 'Przygotowanie…', running: 'Gra uruchomiona', busy: 'Proszę czekać…' };
+  $('play-label').textContent = labels[appState] || 'Graj';
   b.disabled = appState !== 'idle' || !accountsState.active;
   $('btn-repair').disabled = appState !== 'idle';
+  $('btn-more-repair').disabled = appState !== 'idle';
 }
 $('btn-play').onclick = () => { appState = 'preparing'; updatePlayButton(); L.play(); };
 
@@ -574,7 +578,7 @@ $('btn-changelog').onclick = async (e) => {
 async function init() {
   const a = await L.getApp();
   document.title = a.appName;
-  $('title').textContent = a.appName;
+  $('app-version').textContent = `v${a.version}`;
   $('version-info').dataset.version = a.version;
   if (a.portable) $('version-info').dataset.portable = '1';
   renderVersionInfo();
@@ -616,7 +620,8 @@ async function refreshMyMods() {
   const d = await L.myMods();
   myMods = d.list;
   const on = myMods.filter((m) => m.enabled && !m.blocked).length;
-  $('mymods-count').textContent = myMods.length ? `(${on})` : '';
+  $('mymods-count').textContent = on ? String(on) : '';
+  renderHomeMods();
   $('btn-play-clean').classList.toggle('hidden', !myMods.some((m) => m.enabled && !m.blocked && (m.kind || 'mod') === 'mod'));
   const box = $('mymods-list');
   if (mm.kind === 'installed') return renderInstalled(box);
@@ -856,3 +861,38 @@ document.addEventListener('keydown', (e) => {
   const top = open[open.length - 1];
   if (top) { e.preventDefault(); OVERLAY_CLOSE[top.id](); }
 });
+
+// ---------- nowy układ: pasek, widoki, menu ⋯, „Moje mody” na ekranie Start ----------
+
+function showView(view) {
+  $('view-home').classList.toggle('hidden', view !== 'home');
+  $('view-news').classList.toggle('hidden', view !== 'news');
+  $('nav-home').classList.toggle('active', view === 'home');
+  $('nav-news').classList.toggle('active', view === 'news');
+  $('title').textContent = view === 'news' ? 'Aktualności' : 'Start';
+}
+$('nav-home').onclick = () => showView('home');
+$('nav-news').onclick = () => showView('news');
+$('news-all').onclick = (e) => { e.preventDefault(); showView('news'); };
+$('home-mods-open').onclick = (e) => { e.preventDefault(); openMyMods(); };
+
+function renderHomeMods() {
+  const box = $('home-mods');
+  const on = myMods.filter((m) => m.enabled && !m.blocked);
+  if (!on.length) {
+    box.replaceChildren(el('span', { className: 'home-empty', textContent: 'Nie masz jeszcze własnych modów – dodaj minimapę, zoom albo shadery.' }));
+    return;
+  }
+  const items = on.slice(0, 3).map((m) => el('div', { className: 'home-mod', title: m.name },
+    m.icon ? el('img', { src: m.icon, alt: '' }) : el('div', { className: 'noicon' }),
+    el('span', { textContent: m.name })));
+  box.replaceChildren(...items);
+  $('home-mods-open').textContent = on.length > 3 ? `Wszystkie (${on.length})` : 'Przeglądaj';
+}
+
+const moreMenu = $('more-menu');
+$('btn-more').onclick = (e) => { e.stopPropagation(); moreMenu.classList.toggle('hidden'); };
+document.addEventListener('click', (e) => { if (!moreMenu.contains(e.target)) moreMenu.classList.add('hidden'); });
+moreMenu.addEventListener('click', (e) => { if (e.target.closest('button')) setTimeout(() => moreMenu.classList.add('hidden'), 0); });
+$('btn-more-repair').onclick = () => $('btn-repair').click();
+$('btn-more-folder').onclick = () => L.openFolder();

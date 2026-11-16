@@ -7,76 +7,110 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <img src="logo.png" class="logo" alt="">
-    <h1 id="title">MelinaSMP</h1>
-    <div id="update-bar" class="update-bar hidden">
-      <span id="update-text"></span>
-      <button id="btn-update-start" class="primary-sm hidden">Zaktualizuj</button>
-      <button id="btn-update-later" class="ghost-sm hidden">Później</button>
-      <button id="btn-update-install" class="primary-sm hidden">Uruchom ponownie i zaktualizuj</button>
-      <button id="btn-update-show" class="primary-sm hidden">Pokaż plik</button>
-    </div>
-    <button id="btn-settings" class="ghost">⚙ Ustawienia</button>
-  </header>
-  <div id="announcement" class="announcement hidden"></div>
-  <div id="launcher-outdated" class="announcement warn hidden"></div>
+  <div class="app">
+    <nav class="rail" aria-label="Menu">
+      <button id="nav-home" class="rail-btn active" title="Start" aria-label="Start"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.3 3.3a1 1 0 0 1 1.4 0l8 7.6A1 1 0 0 1 20 12.6h-1V20a1 1 0 0 1-1 1h-3.5v-5.5h-5V21H6a1 1 0 0 1-1-1v-7.4H4a1 1 0 0 1-.7-1.7z"/></svg></button>
+      <button id="btn-mymods" class="rail-btn" title="Moje mody" aria-label="Moje mody"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4.5" width="16" height="4" rx="2"/><rect x="4" y="10" width="16" height="4" rx="2"/><rect x="4" y="15.5" width="16" height="4" rx="2"/></svg><span id="mymods-count" class="rail-badge"></span></button>
+      <button id="nav-news" class="rail-btn" title="Aktualności" aria-label="Aktualności"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="5" rx="1.5"/><rect x="3.5" y="12" width="7" height="8" rx="1.5"/><rect x="13.5" y="12" width="7" height="3" rx="1.2"/><rect x="13.5" y="17" width="7" height="3" rx="1.2"/></svg></button>
+      <div class="rail-space"></div>
+      <button id="btn-settings" class="rail-btn" title="Ustawienia" aria-label="Ustawienia"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+      <button id="btn-skin" class="rail-avatar" title="Skin i peleryna" aria-label="Skin i peleryna"><span id="rail-head" class="rail-head"></span></button>
+    </nav>
 
-  <main>
-    <section class="news card">
-      <h2>Aktualności</h2>
-      <div id="news-list" class="news-list"><p class="muted">Ładowanie…</p></div>
-    </section>
-
-    <section class="side">
-      <div class="card server">
-        <div class="server-head">
-          <span id="status-dot" class="dot"></span>
-          <div>
-            <div id="server-name" class="server-name">MelinaSMP</div>
-            <div id="server-addr" class="muted small"></div>
-          </div>
-          <button id="btn-ping" class="ghost tiny" title="Odśwież status">⟳</button>
-        </div>
-        <div class="server-stats">
-          <div><span id="players-count" class="big">–</span><span class="muted small">graczy</span></div>
-          <div><span id="ping-ms" class="big">–</span><span class="muted small">ping</span></div>
-        </div>
-        <div id="players-list" class="players"></div>
-      </div>
-
-      <div class="card account">
+    <div class="content">
+      <header class="topbar">
+        <h1 id="title">Start</h1>
+        <div class="topbar-space"></div>
+        <span id="app-version" class="muted small"></span>
         <div id="account-none" class="hidden">
-          <button id="btn-add-account-first" class="primary">Dodaj konto, aby grać</button>
+          <button id="btn-add-account-first" class="accent-btn">Dodaj konto, aby grać</button>
         </div>
-        <div id="account-current" class="account-current hidden">
+        <div id="account-current" class="account-chip hidden" title="Zmień konto">
           <div class="avatar" id="avatar"></div>
           <div class="account-info">
             <div id="player" class="player"></div>
-            <div id="acc-type" class="muted small"></div>
+            <div id="acc-type" class="acc-type"></div>
           </div>
-          <select id="account-select" title="Zmień konto"></select>
+          <svg aria-hidden="true" class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+          <select id="account-select" aria-label="Zmień konto"></select>
         </div>
-        <div class="account-actions">
-          <button id="btn-skin" class="ghost skin-btn">🎨 Skin i peleryna</button>
-          <button id="btn-mymods" class="ghost skin-btn">🧩 Moje mody <span id="mymods-count" class="muted"></span></button>
+      </header>
+
+      <div class="notices">
+        <div id="update-bar" class="notice update-bar hidden">
+          <span id="update-text"></span>
+          <span class="notice-space"></span>
+          <button id="btn-update-start" class="accent-btn sm hidden">Zaktualizuj</button>
+          <button id="btn-update-later" class="ghost-sm hidden">Później</button>
+          <button id="btn-update-install" class="accent-btn sm hidden">Uruchom ponownie i zaktualizuj</button>
+          <button id="btn-update-show" class="accent-btn sm hidden">Pokaż plik</button>
         </div>
+        <div id="launcher-outdated" class="notice warn hidden"></div>
+        <div id="announcement" class="notice announce hidden"></div>
       </div>
 
-      <button id="btn-play" class="play" disabled>GRAJ</button>
-      <a href="#" id="btn-play-clean" class="small center-text play-clean hidden">Uruchom bez moich modów</a>
-    </section>
-  </main>
+      <main id="view-home" class="home">
+        <div class="home-col">
+          <section class="card hero">
+            <div class="hero-head">
+              <img src="logo.png" class="hero-logo" alt="">
+              <div class="hero-titles">
+                <h2 id="server-name" class="server-name">MelinaSMP</h2>
+                <div id="server-addr" class="muted small"></div>
+              </div>
+              <button id="btn-ping" class="icon-btn" title="Odśwież status" aria-label="Odśwież status"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+            </div>
+            <div class="stats">
+              <div class="stat"><span class="stat-label">Status</span><span class="stat-val"><span id="status-dot" class="dot"></span><span id="status-text">…</span></span></div>
+              <div class="stat"><span class="stat-label">Gracze</span><span id="players-count" class="stat-val">–</span></div>
+              <div class="stat"><span class="stat-label">Ping</span><span id="ping-ms" class="stat-val">–</span></div>
+            </div>
+            <div id="players-list" class="players"></div>
+            <div class="play-row">
+              <button id="btn-play" class="play" disabled><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg><span id="play-label">Graj</span></button>
+              <div class="more-wrap">
+                <button id="btn-more" class="more-btn" title="Więcej" aria-label="Więcej opcji"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+                <div id="more-menu" class="more-menu hidden">
+                  <button id="btn-play-clean" class="hidden">Uruchom bez moich modów</button>
+                  <button id="btn-more-repair">Napraw pliki gry</button>
+                  <button id="btn-more-folder">Otwórz folder gry</button>
+                  <button id="btn-log">Pokaż log</button>
+                </div>
+              </div>
+            </div>
+            <div class="progress">
+              <div class="progress-row">
+                <span id="progress-label" class="muted small">Gotowy</span>
+                <span id="seed-status" class="seed-status small hidden"></span>
+              </div>
+              <div class="bar"><div id="bar-fill"></div></div>
+            </div>
+          </section>
 
-  <footer>
-    <div class="footer-row">
-      <span id="progress-label" class="small muted">Gotowy</span>
-      <span id="seed-status" class="small muted seed-status hidden"></span>
-      <a href="#" id="btn-log" class="small">Pokaż log</a>
+          <section class="card home-mods">
+            <div class="card-head">
+              <h3>Moje mody</h3>
+              <a href="#" id="home-mods-open">Przeglądaj</a>
+            </div>
+            <div id="home-mods" class="home-mods-list"></div>
+          </section>
+        </div>
+
+        <section class="card news">
+          <div class="card-head"><h3>Aktualności</h3><a href="#" id="news-all">Wszystkie</a></div>
+          <div id="news-list" class="news-list"><p class="muted">Ładowanie…</p></div>
+        </section>
+      </main>
+
+      <main id="view-news" class="news-view hidden">
+        <section class="card news">
+          <div id="news-full" class="news-list"></div>
+        </section>
+      </main>
+
+      <pre id="log" class="hidden"></pre>
     </div>
-    <div class="bar"><div id="bar-fill"></div></div>
-    <pre id="log" class="hidden"></pre>
-  </footer>
+  </div>
 
   <!-- Dodawanie konta -->
   <div id="add-account" class="overlay hidden">

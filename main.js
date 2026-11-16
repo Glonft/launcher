@@ -643,7 +643,7 @@ app.whenReady().then(() => {
     resizable: false,
     title: config.appName,
     icon: path.join(__dirname, 'renderer', 'logo.png'),
-    backgroundColor: '#14161c',
+    backgroundColor: '#120e1f',
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
   });
