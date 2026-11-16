@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('launcher', {
   refreshInfo: () => invoke('info:refresh'),
   pingServer: () => invoke('server:ping'),
   getPlayers: () => invoke('server:players'),
+  winMinimize: () => invoke('win:minimize'),
+  winToggleMax: () => invoke('win:toggleMax'),
+  winClose: () => invoke('win:close'),
 
   getAccounts: () => invoke('accounts:get'),
   addOffline: (name) => invoke('accounts:addOffline', name),
@@ -51,7 +54,7 @@ contextBridge.exposeInMainWorld('launcher', {
   showUpdateFile: () => invoke('update:showFile'),
 
   on: (channel, cb) => {
-    if (['log', 'progress', 'state', 'error', 'info', 'update', 'seed', 'zoom'].includes(channel)) {
+    if (['log', 'progress', 'state', 'error', 'info', 'update', 'seed', 'zoom', 'winstate'].includes(channel)) {
       ipcRenderer.on(channel, (_e, data) => cb(data));
     }
   },

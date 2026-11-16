@@ -41,6 +41,11 @@ function showInfo(info) {
     box.classList.toggle('warn', !!(a && a.level === 'warn'));
     box.textContent = (a && a.text) || '';
   }
+  if ('discord' in info) {
+    const d = $('btn-discord');
+    d.classList.toggle('hidden', !info.discord);
+    d.href = info.discord || '#';
+  }
   if ('requiredLauncher' in info) {
     const box = $('launcher-outdated');
     box.classList.toggle('hidden', !info.requiredLauncher);
@@ -62,6 +67,19 @@ function showInfo(info) {
     }
   }
 }
+
+// ---------- pasek górny okna ----------
+$('tb-min').onclick = () => L.winMinimize();
+$('tb-max').onclick = () => L.winToggleMax();
+$('tb-close').onclick = () => L.winClose();
+L.on('winstate', (st) => {
+  const max = !!(st && st.maximized);
+  document.body.classList.toggle('maximized', max);
+  $('tb-max').title = max ? 'Przywróć' : 'Maksymalizuj';
+  $('tb-max-icon').innerHTML = max
+    ? '<path d="M5 2v3H2M9 2v3h3M12 9H9v3M2 9h3v3"/>'
+    : '<path d="M2 5V2h3M9 2h3v3M12 9v3H9M5 12H2V9"/>';
+});
 
 // ---------- status serwera ----------
 async function refreshStatus() {
@@ -483,10 +501,20 @@ $('btn-addons').onclick = openAddons;
 
 // ---------- gracze online ----------
 let playersTimer = null;
+let lastPlayers = null;
+function playerCard(name) {
+  const img = el('img', { src: headUrl(name, 64), alt: '' });
+  img.onload = () => img.classList.add('loaded');
+  img.onerror = () => { img.replaceWith(el('div', { className: 'player-noface' })); };
+  if (img.complete && img.naturalWidth) img.classList.add('loaded');
+  return el('div', { className: 'player-card' }, img, el('span', { textContent: name }));
+}
 async function loadPlayers() {
   const box = $('players-full');
   try {
     const r = await L.getPlayers();
+    if (lastPlayers && JSON.stringify(lastPlayers) === JSON.stringify(r)) return; // nic się nie zmieniło – nic nie przerysowujemy
+    lastPlayers = r;
     if (!r.online) {
       $('players-total').textContent = '';
       box.replaceChildren(el('p', { className: 'hint', textContent: `Serwer jest offline${r.error ? ` (${r.error})` : ''}.` }));
@@ -500,11 +528,7 @@ async function loadPlayers() {
       box.replaceChildren(el('p', { className: 'hint', textContent: 'Nikogo nie ma – bądź pierwszy!' }));
     } else {
       const names = [...p.names].sort((a, b) => a.localeCompare(b, 'pl', { sensitivity: 'base' }));
-      box.replaceChildren(...names.map((name) => {
-        const img = el('img', { src: headUrl(name, 64), alt: '' });
-        img.onerror = () => { img.replaceWith(el('div', { className: 'player-noface' })); };
-        return el('div', { className: 'player-card' }, img, el('span', { textContent: name }));
-      }));
+      box.replaceChildren(...names.map(playerCard));
       const hidden = p.online - p.names.length;
       if (hidden > 0) box.append(el('div', { className: 'player-card more', textContent: `i ${hidden} ${hidden === 1 ? 'inny' : 'innych'}` }));
     }
@@ -514,8 +538,11 @@ async function loadPlayers() {
   }
 }
 async function openPlayers() {
-  $('players-full').replaceChildren(...Array.from({ length: 6 }, () => el('div', { className: 'player-card skel' })));
-  $('players-total').textContent = '';
+  // od razu ostatnia znana lista (bez migających zarysów), świeża podmienia się po cichu
+  if (!lastPlayers) {
+    $('players-full').replaceChildren(el('p', { className: 'hint', textContent: 'Wczytuję listę graczy…' }));
+    $('players-total').textContent = '';
+  }
   $('players-dialog').classList.remove('hidden');
   $('btn-players').classList.add('active');
   await loadPlayers();
@@ -655,6 +682,7 @@ $('btn-changelog').onclick = async (e) => {
 async function init() {
   const a = await L.getApp();
   document.title = a.appName;
+  $('tb-title').textContent = /launcher/i.test(a.appName) ? a.appName : `${a.appName} Launcher`;
   $('app-version').textContent = `v${a.version}`;
   $('version-info').dataset.version = a.version;
   if (a.portable) $('version-info').dataset.portable = '1';

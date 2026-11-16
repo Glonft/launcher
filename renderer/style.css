@@ -30,8 +30,25 @@ body {
   margin: 0; height: 100vh; overflow: hidden;
   font-family: "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, sans-serif;
   color: var(--text); font-size: 14px; background: var(--bg);
-  user-select: none;
+  user-select: none; display: flex; flex-direction: column;
 }
+
+/* ---------- własny pasek górny (zamiast windowsowego) ---------- */
+.titlebar {
+  flex: none; height: 42px; margin: 8px 12px 0; padding: 0 6px 0 14px; display: flex; align-items: center; gap: 10px;
+  border-radius: 14px; border: 1px solid var(--border-strong);
+  background: linear-gradient(90deg, rgba(255, 174, 26, .10), rgba(255, 174, 26, .02) 45%, rgba(169, 139, 255, .06)), var(--card);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .04);
+  -webkit-app-region: drag; position: relative; z-index: 20;
+}
+.tb-brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 13.5px; letter-spacing: .01em; }
+.tb-brand img { width: 20px; height: 20px; image-rendering: pixelated; }
+.tb-space { flex: 1; }
+.tb-win { display: flex; gap: 2px; -webkit-app-region: no-drag; }
+.tb-btn { width: 36px; height: 30px; padding: 0; border-radius: 9px; background: transparent; color: var(--muted-2); display: flex; align-items: center; justify-content: center; }
+.tb-btn:hover:not(:disabled) { background: rgba(255, 255, 255, .07); color: var(--text); filter: none; }
+.tb-btn.close:hover:not(:disabled) { background: #c4314b; color: #fff; }
+body.maximized .titlebar { margin: 0; border-radius: 0; border-width: 0 0 1px; }
 .hidden { display: none !important; }
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
@@ -56,10 +73,10 @@ input[type=text], input:not([type]) { flex: 1; min-width: 0; }
 select { width: 100%; }
 
 /* ---------- układ ---------- */
-.app { display: flex; height: 100vh; }
+.app { display: flex; flex: 1; min-height: 0; }
 
 .rail {
-  width: 64px; margin: 12px 0 12px 12px; padding: 12px 0; flex: none;
+  width: 64px; margin: 10px 0 12px 12px; padding: 12px 0; flex: none;
   border-radius: 30px; background: var(--card); border: 1px solid var(--border-strong);
   box-shadow: 0 10px 28px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .05);
   display: flex; flex-direction: column; align-items: center; gap: 10px;
@@ -69,6 +86,8 @@ select { width: 100%; }
   border: 1px solid rgba(255, 255, 255, .07); background: rgba(255, 255, 255, .03); color: var(--muted-2);
   display: flex; align-items: center; justify-content: center;
 }
+a.rail-btn { text-decoration: none; }
+.rail-btn.discord:hover { color: #8b9bff; }
 .rail-btn.active { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); box-shadow: 0 0 14px var(--accent-glow); }
 .rail-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent-strong); color: var(--on-accent); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
 .rail-badge:empty { display: none; }
@@ -178,8 +197,8 @@ select { width: 100%; }
 #log { margin: 0 24px 16px; height: 140px; flex: none; overflow-y: auto; font-size: 11px; color: var(--muted); white-space: pre-wrap; user-select: text; background: var(--inner); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
 
 /* ---------- okna ---------- */
-.overlay { position: fixed; inset: 0; background: rgba(6, 5, 9, .72); display: flex; align-items: center; justify-content: center; z-index: 10; }
-.panel { background: var(--card); border: 1px solid var(--border-strong); border-radius: 22px; padding: 22px 26px 0; width: 600px; max-height: 92vh; overflow-y: auto; user-select: text; box-shadow: 0 24px 60px rgba(0, 0, 0, .55); }
+.overlay { position: fixed; inset: 50px 0 0 0; background: rgba(6, 5, 9, .72); display: flex; align-items: center; justify-content: center; z-index: 10; }
+.panel { background: var(--card); border: 1px solid var(--border-strong); border-radius: 22px; padding: 22px 26px 0; width: 600px; max-height: calc(100vh - 80px); overflow-y: auto; user-select: text; box-shadow: 0 24px 60px rgba(0, 0, 0, .55); }
 .panel:has(> .row.end) { padding-bottom: 0; }
 .panel.narrow { width: 400px; padding-bottom: 18px; text-align: center; }
 .panel h2 { margin: 0 0 12px; font-size: 18px; font-weight: 700; }
@@ -245,7 +264,7 @@ summary { cursor: pointer; color: var(--muted); margin-bottom: 8px; }
 .changes-panel ul { margin: 0; padding-left: 20px; line-height: 1.55; color: var(--muted-2); }
 
 /* Moje mody */
-.mymods-panel { width: min(1060px, 95vw); height: min(720px, 92vh); max-height: none; overflow: hidden; display: flex; flex-direction: column; padding: 22px 26px 14px; }
+.mymods-panel { width: min(1060px, 95vw); height: min(720px, calc(100vh - 80px)); max-height: none; overflow: hidden; display: flex; flex-direction: column; padding: 22px 26px 14px; }
 .mymods-panel { position: relative; }
 .mymods-panel > .panel-x { position: absolute; top: 18px; right: 22px; margin: 0; float: none; }
 .mm-head { flex: none; }
@@ -331,10 +350,18 @@ a.mm-link:hover { color: var(--accent-hover); text-decoration: underline; }
 .players-grid > p { grid-column: 1 / -1; }
 .player-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--inner); border: 1px solid var(--line-soft); min-width: 0; min-height: 52px; font-weight: 600; font-size: 13.5px; }
 .player-card img, .player-noface { width: 34px; height: 34px; border-radius: 7px; image-rendering: pixelated; background: var(--chip); flex: none; }
+.player-card img { opacity: 0; transition: opacity .2s; }
+.player-card img.loaded { opacity: 1; }
+.players-grid { min-height: 120px; align-content: start; }
 .player-card span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-card.more { color: var(--muted); justify-content: center; font-weight: 500; }
 
 /* przewijanie */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
-::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; min-height: 40px; }
+::-webkit-scrollbar-thumb:hover { background-color: #463f50; }
+::-webkit-scrollbar-track { background: transparent; margin: 8px 0; }
+::-webkit-scrollbar-corner { background: transparent; }
+/* okna mają mocno zaokrąglone rogi – suwak nie może w nie wchodzić */
+.panel::-webkit-scrollbar-track { margin: 22px 0; }
+#players-dialog { align-items: flex-start; padding-top: 8vh; }

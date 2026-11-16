@@ -104,8 +104,18 @@ function applyZoom() {
     if (f > fit) f = Math.max(0.8, Math.floor(fit * 20) / 20);
   } catch { /* zostaje f */ }
   win.webContents.setZoomFactor(f);
-  win.setContentSize(Math.round(baseContentSize[0] * f), Math.round(baseContentSize[1] * f));
-  win.center();
+  const w = Math.round(baseContentSize[0] * f);
+  const h = Math.round(baseContentSize[1] * f);
+  win.setMinimumSize(Math.round(w * 0.85), Math.round(h * 0.85));
+  if (win.isMaximized() || win.isFullScreen()) return; // zmaksymalizowane zostaje zmaksymalizowane
+  // nowy rozmiar, ale okno zostaje tam, gdzie je postawiłeś (ten sam środek, w granicach ekranu)
+  const b = win.getBounds();
+  const area = screen.getDisplayMatching(b).workArea;
+  let x = Math.round(b.x + b.width / 2 - w / 2);
+  let y = Math.round(b.y + b.height / 2 - h / 2);
+  x = Math.min(Math.max(x, area.x), area.x + area.width - w);
+  y = Math.min(Math.max(y, area.y), area.y + area.height - h);
+  win.setBounds({ x, y, width: w, height: h });
 }
 
 /** Informacja dla adminów (zakładka Gracze w panelu). */
@@ -172,7 +182,14 @@ function publicInfo(manifest) {
       replacesData: g.files.some((f) => f.seed),
     })),
     packVersion: manifest ? manifest.version : null,
+    discord: discordLink(manifest),
   };
+}
+
+/** Zaproszenie na Discord z panelu (tylko linki discord.gg / discord.com). */
+function discordLink(manifest) {
+  const url = manifest && manifest.links && manifest.links.discord;
+  return typeof url === 'string' && /^https:\/\/(www\.)?(discord\.gg|discord\.com\/invite)\/[\w-]+\/?$/i.test(url.trim()) ? url.trim() : null;
 }
 
 // ---------- gra ----------
@@ -652,6 +669,9 @@ app.whenReady().then(() => {
     if (/^https:\/\//.test(url)) shell.openExternal(url);
   });
 
+  ipcMain.handle('win:minimize', () => win && win.minimize());
+  ipcMain.handle('win:toggleMax', () => { if (!win) return; if (win.isMaximized()) win.unmaximize(); else win.maximize(); });
+  ipcMain.handle('win:close', () => win && win.close());
   ipcMain.handle('settings:get', () => ({
     settings: settings.get(),
     system: SettingsStore.systemInfo(),
@@ -660,8 +680,10 @@ app.whenReady().then(() => {
   }));
   ipcMain.handle('settings:set', (_e, input) => {
     const { gameDir: _ignored, ...rest } = input || {}; // folder zmienia się osobno
+    const before = settings.get().uiScale;
     const out = settings.set(rest);
-    applyZoom();
+    // rozmiar okna ruszamy tylko, gdy zmienił się „Rozmiar interfejsu” (nie przy dodatkach i innych opcjach)
+    if ('uiScale' in rest && String(before) !== String(out.uiScale)) applyZoom();
     return out;
   });
   ipcMain.handle('settings:pickFolder', async () => {
@@ -698,7 +720,10 @@ app.whenReady().then(() => {
   win = new BrowserWindow({
     width: 980,
     height: 600,
-    resizable: false,
+    useContentSize: true,
+    frame: false, // własny pasek górny w launcherze zamiast windowsowego
+    resizable: true,
+    maximizable: true,
     title: config.appName,
     icon: path.join(__dirname, 'renderer', 'logo.png'),
     backgroundColor: '#110f15',
@@ -706,9 +731,17 @@ app.whenReady().then(() => {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
   });
   win.removeMenu(); // bez menu „File / Edit / View” pod Altem
-  baseContentSize = win.getContentSize();
+  baseContentSize = [980, 600];
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  win.webContents.on('did-finish-load', applyZoom);
+  let firstLoad = true;
+  win.webContents.on('did-finish-load', () => {
+    applyZoom();
+    if (firstLoad) { firstLoad = false; if (!win.isMaximized()) win.center(); } // na środek tylko przy starcie
+    send('winstate', { maximized: win.isMaximized() });
+  });
+  for (const ev of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) {
+    win.on(ev, () => send('winstate', { maximized: win.isMaximized() || win.isFullScreen() }));
+  }
   // Ctrl + / Ctrl - / Ctrl 0 – rozmiar interfejsu (zapamiętywany)
   win.webContents.on('before-input-event', (e, input) => {
     if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return;
