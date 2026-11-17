@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, screen, Menu, nativeImage } = require('electron');
 const { modIcon } = require('./src/jar');
 const { queryFull } = require('./src/query');
+const { DiscordPresence } = require('./src/discord-rpc');
 const path = require('path');
 const fs = require('fs');
 const { Client } = require('minecraft-launcher-core');
@@ -231,6 +232,60 @@ async function backgroundImage(bg) {
   return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
+// ---------- status na Discordzie (Rich Presence) ----------
+let presence = null;
+let gameStartedAt = null;
+let presencePlayers = null;
+let presenceTimer = null;
+
+/** Application ID aplikacji Discord z panelu. */
+function discordAppId(manifest) {
+  const id = manifest && manifest.links && manifest.links.discordAppId;
+  return /^\d{15,22}$/.test(String(id || '')) ? String(id) : null;
+}
+
+/** Ustawia status na Discordzie według tego, co się teraz dzieje (launcher / gra). */
+function updatePresence() {
+  if (!presence) presence = new DiscordPresence({ log });
+  const s = settings.get();
+  const m = cachedManifest();
+  const appId = discordAppId(m);
+  if (s.discordRpc === false || !appId) {
+    presence.stop();
+    clearInterval(presenceTimer);
+    presenceTimer = null;
+    return;
+  }
+  const srv = serverFrom(m);
+  const name = srv.name || config.appName;
+  const activity = {
+    details: gameStartedAt ? `Gra na ${name}` : 'W launcherze',
+    state: gameStartedAt
+      ? (presencePlayers ? `${presencePlayers.online}/${presencePlayers.max} graczy online` : 'Na serwerze')
+      : `Serwer ${name}`,
+    assets: { large_image: (m.links && m.links.discordImage) || 'logo', large_text: name },
+    instance: false,
+  };
+  if (gameStartedAt) activity.timestamps = { start: gameStartedAt };
+  const invite = discordLink(m);
+  if (s.discordRpcButton && invite) activity.buttons = [{ label: 'Dołącz do Discorda', url: invite }];
+  presence.start(appId);
+  presence.setActivity(activity);
+  // w trakcie gry co minutę odświeżamy liczbę graczy
+  if (gameStartedAt && !presenceTimer) {
+    const tick = () => pingServer(srv.host, srv.port)
+      .then((r) => { presencePlayers = r && r.online ? r.players : null; if (gameStartedAt) updatePresence(); })
+      .catch(() => {});
+    tick();
+    presenceTimer = setInterval(tick, 60 * 1000);
+  } else if (!gameStartedAt && presenceTimer) {
+    clearInterval(presenceTimer);
+    presenceTimer = null;
+    presencePlayers = null;
+  }
+}
+const safePresence = () => { try { updatePresence(); } catch (e) { log(`Status Discorda: ${e.message}`); } };
+
 /** Zaproszenie na Discord z panelu (tylko linki discord.gg / discord.com). */
 function discordLink(manifest) {
   const url = manifest && manifest.links && manifest.links.discord;
@@ -301,6 +356,8 @@ async function play(opts = {}) {
     launcher.on('close', (code) => {
       log(`Gra zamknięta (kod ${code}).`);
       running = false;
+      gameStartedAt = null;
+      safePresence();
       setState('idle');
       if (win && !win.isDestroyed()) win.restore();
     });
@@ -324,6 +381,8 @@ async function play(opts = {}) {
     });
     if (!proc) throw new Error('Nie udało się uruchomić gry – zobacz log.');
     setState('running');
+    gameStartedAt = Date.now();
+    safePresence();
 
     if (s.afterLaunch === 'close' && seedJob) {
       // nie zamykamy w trakcie pobierania w tle – launcher zamknie się sam po pobraniu
@@ -488,6 +547,8 @@ app.whenReady().then(() => {
     afterLaunch: 'minimize',
     jvmArgs: '',
     addons: {},
+    discordRpc: true, // status na Discordzie – domyślnie włączony
+    discordRpcButton: false, // przycisk z zaproszeniem pod statusem – domyślnie wyłączony
   });
 
   const changelog = () => readChangelog(path.join(__dirname, 'CHANGELOG.md'));
@@ -506,7 +567,10 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('changelog:get', () => changelog());
   ipcMain.handle('info:refresh', async () => {
-    try { return publicInfo(await fetchManifest(gameDir(), true)); } catch { return publicInfo(cachedManifest()); }
+    let info;
+    try { info = publicInfo(await fetchManifest(gameDir(), true)); } catch { info = publicInfo(cachedManifest()); }
+    safePresence(); // świeży manifest = może nowe Application ID / zaproszenie
+    return info;
   });
   ipcMain.handle('server:ping', async () => {
     const srv = serverFrom(cachedManifest());
@@ -744,6 +808,7 @@ app.whenReady().then(() => {
     const { gameDir: _ignored, ...rest } = input || {}; // folder zmienia się osobno
     const before = settings.get().uiScale;
     const out = settings.set(rest);
+    if ('discordRpc' in rest || 'discordRpcButton' in rest) safePresence();
     // rozmiar okna ruszamy tylko, gdy zmienił się „Rozmiar interfejsu” (nie przy dodatkach i innych opcjach)
     if ('uiScale' in rest && String(before) !== String(out.uiScale)) applyZoom();
     return out;
@@ -832,4 +897,5 @@ app.whenReady().then(() => {
   setTimeout(() => hello(null, false), 5000);
 });
 
+app.on('before-quit', () => { if (presence) presence.stop(); });
 app.on('window-all-closed', () => app.quit());

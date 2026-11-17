@@ -47,6 +47,8 @@ class SettingsStore {
       s.uiScale = z >= 0.8 && z <= 2 ? Math.round(z * 100) / 100 : 'auto';
     }
     s.jvmArgs = String(s.jvmArgs || '').trim();
+    s.discordRpc = s.discordRpc !== false;
+    s.discordRpcButton = !!s.discordRpcButton;
 
     const addons = {};
     for (const [k, v] of Object.entries(s.addons || {})) {

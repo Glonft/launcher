@@ -603,6 +603,9 @@ async function openSettings() {
   if (!$('ui-scale').value) $('ui-scale').value = 'auto';
   $('game-dir').value = s.gameDir;
   $('jvm-args').value = s.jvmArgs;
+  $('discord-rpc').checked = s.discordRpc !== false;
+  $('discord-rpc-button').checked = !!s.discordRpcButton;
+  $('discord-rpc-button').disabled = !$('discord-rpc').checked;
   renderAccounts(await L.getAccounts());
   $('settings-error').textContent = '';
   hideDirChange();
@@ -621,6 +624,8 @@ function collectSettings() {
     afterLaunch: $('after-launch').value,
     jvmArgs: $('jvm-args').value,
     uiScale: $('ui-scale').value === 'auto' ? 'auto' : Number($('ui-scale').value),
+    discordRpc: $('discord-rpc').checked,
+    discordRpcButton: $('discord-rpc-button').checked,
   };
 }
 /** Zamknięcie ustawień kliknięciem obok / Esc / ✕ – pyta o niezapisane zmiany. */
@@ -643,6 +648,7 @@ function showDirChange(dir) {
 }
 
 $('btn-settings').onclick = openSettings;
+$('discord-rpc').onchange = () => { $('discord-rpc-button').disabled = !$('discord-rpc').checked; };
 
 $('ram-max').oninput = updateRamLabels;
 $('ram-min').oninput = updateRamLabels;
