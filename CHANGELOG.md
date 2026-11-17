@@ -8,6 +8,9 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.9.4
+- Status na Discordzie: widać, że jesteś w launcherze albo grasz na serwerze (można wyłączyć w Ustawieniach)
+
 ## 0.9.3
 - Launcher może mieć własne kolory, tło i układ ekranu Start
 
