@@ -8,6 +8,9 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.9.3
+- Launcher może mieć własne kolory, tło i układ ekranu Start
+
 ## 0.9.2
 - Nowy pasek górny launchera z przyciskiem maksymalizacji
 - Ikona naszego Discorda na pasku bocznym
