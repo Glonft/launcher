@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('launcher', {
   refreshInfo: () => invoke('info:refresh'),
   pingServer: () => invoke('server:ping'),
   getPlayers: () => invoke('server:players'),
+  backgroundImage: (bg) => invoke('appearance:background', bg),
   winMinimize: () => invoke('win:minimize'),
   winToggleMax: () => invoke('win:toggleMax'),
   winClose: () => invoke('win:close'),

@@ -184,7 +184,51 @@ function publicInfo(manifest) {
     })),
     packVersion: manifest ? manifest.version : null,
     discord: discordLink(manifest),
+    appearance: appearanceFrom(manifest),
   };
+}
+
+/** Wygląd launchera z panelu: kolory, tło i układ ekranu Start (wszystko sprawdzone, nic „na słowo”). */
+function appearanceFrom(manifest) {
+  const a = manifest && manifest.appearance;
+  if (!a || typeof a !== 'object') return null;
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const c = a.colors || {};
+  const colors = ['bg', 'card', 'accent', 'second'].every((k) => HEX.test(c[k] || '')) ? { bg: c.bg, card: c.card, accent: c.accent, second: c.second } : null;
+  const b = a.background;
+  const background = b && /^https:\/\//.test(b.url || '') && /^[0-9a-f]{40}$/i.test(b.sha1 || '')
+    ? { url: b.url, sha1: b.sha1.toLowerCase(), dim: Math.min(90, Math.max(0, Number(b.dim) || 0)), blur: Math.min(20, Math.max(0, Number(b.blur) || 0)) }
+    : null;
+  const l = a.layout || {};
+  const layout = {
+    news: ['right', 'left', 'below', 'hidden'].includes(l.news) ? l.news : 'right',
+    modsFirst: !!l.modsFirst,
+    modsHidden: !!l.modsHidden,
+  };
+  return { colors, background, layout };
+}
+
+/** Tło z panelu: pobierane raz i trzymane w folderze launchera. Zwraca data: URL (albo null). */
+async function backgroundImage(bg) {
+  if (!bg || !bg.url || !bg.sha1) return null;
+  const dir = path.join(app.getPath('userData'), 'backgrounds');
+  const ext = (bg.url.match(/\.(jpe?g|png|webp)(?:$|\?)/i) || [, 'jpg'])[1].toLowerCase();
+  const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+  const file = path.join(dir, `${bg.sha1}.${ext}`);
+  let buf = null;
+  try { buf = fs.readFileSync(file); } catch { /* jeszcze nie ma */ }
+  if (!buf) {
+    const res = await fetch(bg.url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > 8 * 1024 * 1024) throw new Error('za duże tło');
+    if (require('crypto').createHash('sha1').update(buf).digest('hex') !== bg.sha1) throw new Error('tło nie zgadza się z sumą kontrolną');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, buf);
+    // stare tła usuwamy
+    for (const f of fs.readdirSync(dir)) if (f !== path.basename(file)) { try { fs.unlinkSync(path.join(dir, f)); } catch { /* trudno */ } }
+  }
+  return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
 /** Zaproszenie na Discord z panelu (tylko linki discord.gg / discord.com). */
@@ -684,6 +728,9 @@ app.whenReady().then(() => {
     if (/^https:\/\//.test(url)) shell.openExternal(url);
   });
 
+  ipcMain.handle('appearance:background', async (_e, bg) => {
+    try { return await backgroundImage(bg); } catch (e) { log(`Nie udało się wczytać tła launchera (${e.message}).`); return null; }
+  });
   ipcMain.handle('win:minimize', () => win && win.minimize());
   ipcMain.handle('win:toggleMax', () => { if (!win) return; if (win.isMaximized()) win.unmaximize(); else win.maximize(); });
   ipcMain.handle('win:close', () => win && win.close());

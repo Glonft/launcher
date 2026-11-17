@@ -41,6 +41,7 @@ function showInfo(info) {
     box.classList.toggle('warn', !!(a && a.level === 'warn'));
     box.textContent = (a && a.text) || '';
   }
+  if ('appearance' in info) applyAppearance(info.appearance);
   if ('discord' in info) {
     const d = $('btn-discord');
     d.classList.toggle('hidden', !info.discord);
@@ -66,6 +67,36 @@ function showInfo(info) {
       list.append(item);
     }
   }
+}
+
+// ---------- wygląd od serwera (kolory, tło, układ) ----------
+let currentBg = null;
+function applyAppearance(a) {
+  const T = window.MelinaTheme;
+  // kolory
+  if (a && a.colors && T) T.apply(a.colors);
+  else if (T) for (const k of Object.keys(T.vars({}))) document.documentElement.style.removeProperty(k);
+  try { localStorage.setItem('melina.appearance', JSON.stringify({ colors: (a && a.colors) || null })); } catch { /* bez znaczenia */ }
+  // układ ekranu Start
+  const l = (a && a.layout) || {};
+  const home = $('view-home');
+  for (const c of ['news-left', 'news-below', 'news-hidden', 'mods-first', 'mods-hidden']) home.classList.remove(c);
+  if (l.news && l.news !== 'right') home.classList.add(`news-${l.news}`);
+  if (l.modsFirst) home.classList.add('mods-first');
+  if (l.modsHidden) home.classList.add('mods-hidden');
+  // tło
+  const bg = a && a.background;
+  if (!bg) { currentBg = null; document.body.classList.remove('has-bg'); $('bg-layer').style.backgroundImage = ''; return; }
+  $('bg-layer').style.filter = bg.blur ? `blur(${bg.blur}px)` : '';
+  $('bg-dim').style.opacity = String((bg.dim || 0) / 100);
+  if (currentBg === bg.sha1) return;
+  currentBg = bg.sha1;
+  L.backgroundImage(bg).then((url) => {
+    if (currentBg !== bg.sha1) return;
+    if (!url) { document.body.classList.remove('has-bg'); return; }
+    $('bg-layer').style.backgroundImage = `url("${url}")`;
+    document.body.classList.add('has-bg');
+  }).catch(() => {});
 }
 
 // ---------- pasek górny okna ----------
