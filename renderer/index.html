@@ -115,6 +115,30 @@
         </section>
       </main>
 
+      <!-- układ „Scena” (z panelu): pusty środek z tłem, kafelki w rogach -->
+      <main id="view-scene" class="scene hidden">
+        <a id="scene-discord" class="scene-card scene-discord hidden" href="#" target="_blank">
+          <span class="scene-discord-ico"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19.6 5.3A17.6 17.6 0 0 0 15.3 4l-.5 1.1a16.3 16.3 0 0 0-5 0L9.3 4A17.5 17.5 0 0 0 5 5.3C2.3 9.4 1.6 13.4 1.9 17.3a17.7 17.7 0 0 0 5.4 2.7l1.1-1.8a11.4 11.4 0 0 1-1.8-.9l.4-.3a12.6 12.6 0 0 0 10.8 0l.4.3c-.6.3-1.2.6-1.8.9l1.1 1.8a17.6 17.6 0 0 0 5.4-2.7c.4-4.5-.7-8.5-3.3-12zM8.7 14.9c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1zm6.6 0c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1z"/></svg></span>
+          <span><small>Społeczność</small><b>Dołącz do naszego Discorda</b><span id="scene-discord-count" class="muted"></span></span>
+        </a>
+        <section class="scene-card scene-news">
+          <div class="card-head"><h3>Najnowsze wiadomości</h3><a href="#" id="scene-news-all">Wszystkie</a></div>
+          <div class="scene-news-wrap">
+            <button id="scene-prev" class="scene-arrow prev" aria-label="Poprzednie">‹</button>
+            <div id="scene-news-track" class="scene-news-track"></div>
+            <button id="scene-next" class="scene-arrow next" aria-label="Następne">›</button>
+          </div>
+        </section>
+        <section class="scene-card scene-play">
+          <div class="scene-play-head">
+            <h3 id="scene-server">MelinaSMP</h3>
+            <span id="scene-online" class="scene-pill"><span id="scene-dot" class="dot"></span><span id="scene-online-text">…</span></span>
+          </div>
+          <div class="scene-as"><span id="scene-head" class="scene-head"></span><span>Uruchamianie jako <b id="scene-nick">–</b></span></div>
+          <div id="scene-play-slot"></div>
+        </section>
+      </main>
+
       <main id="view-news" class="news-view hidden">
         <section class="card news">
           <div id="news-full" class="news-list"></div>

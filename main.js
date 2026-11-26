@@ -203,6 +203,8 @@ function appearanceFrom(manifest) {
   const img = (x) => (x && /^https:\/\//.test(x.url || '') && /^[0-9a-f]{40}$/i.test(x.sha1 || '') ? { url: x.url, sha1: x.sha1.toLowerCase() } : null);
   const l = a.layout || {};
   const layout = {
+    style: l.style === 'scene' ? 'scene' : 'tiles',
+    discordCard: l.discordCard !== false,
     news: ['right', 'left', 'below', 'hidden'].includes(l.news) ? l.news : 'right',
     modsFirst: !!l.modsFirst,
     modsHidden: !!l.modsHidden,
@@ -210,7 +212,7 @@ function appearanceFrom(manifest) {
   return { colors, background, layout, icon: img(a.icon) };
 }
 
-/** Obrazek z panelu (logo, ikona, obrazek newsa): pobierany raz do folderu launchera i sprawdzany sumą. Zwraca ścieżkę pliku. */
+/** Obrazek z panelu (ikona, obrazek newsa): pobierany raz do folderu launchera i sprawdzany sumą. Zwraca ścieżkę pliku. */
 async function cachedImage(img) {
   if (!img || !/^https:\/\//.test(img.url || '') || !/^[0-9a-f]{40}$/i.test(img.sha1 || '')) return null;
   const dir = path.join(app.getPath('userData'), 'images');
@@ -249,6 +251,22 @@ async function applyWindowIcon(manifest) {
   } catch (e) { log(`Ikona launchera: ${e.message}`); }
 }
 
+/** Liczba osób na Discordzie z zaproszenia (publiczne API Discorda, bez klucza) – co najwyżej raz na 10 minut. */
+let discordCounts = { at: 0, code: null, data: null };
+async function discordInviteCounts(manifest) {
+  const link = discordLink(manifest);
+  const code = link && (link.match(/(?:discord\.gg|discord\.com\/invite)\/([\w-]+)/i) || [])[1];
+  if (!code) return null;
+  if (discordCounts.code === code && Date.now() - discordCounts.at < 10 * 60 * 1000) return discordCounts.data;
+  try {
+    const res = await fetch(`https://discord.com/api/v9/invites/${encodeURIComponent(code)}?with_counts=true`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const j = await res.json();
+    const data = { members: j.approximate_member_count || null, online: j.approximate_presence_count || null, name: (j.guild && j.guild.name) || null };
+    discordCounts = { at: Date.now(), code, data };
+    return data;
+  } catch { return discordCounts.code === code ? discordCounts.data : null; }
+}
 
 /** Tło z panelu: pobierane raz i trzymane w folderze launchera. Zwraca data: URL (albo null). */
 async function backgroundImage(bg) {
@@ -862,6 +880,7 @@ app.whenReady().then(() => {
   ipcMain.handle('appearance:image', async (_e, img) => {
     try { return await imageDataUrl(img); } catch (e) { log(`Nie udało się wczytać obrazka (${e.message}).`); return null; }
   });
+  ipcMain.handle('discord:counts', () => discordInviteCounts(cachedManifest()));
   ipcMain.handle('appearance:background', async (_e, bg) => {
     try { return await backgroundImage(bg); } catch (e) { log(`Nie udało się wczytać tła launchera (${e.message}).`); return null; }
   });

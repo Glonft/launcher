@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('launcher', {
   getPlayers: () => invoke('server:players'),
   backgroundImage: (bg) => invoke('appearance:background', bg),
   image: (img) => invoke('appearance:image', img),
+  discordCounts: () => invoke('discord:counts'),
   winMinimize: () => invoke('win:minimize'),
   winToggleMax: () => invoke('win:toggleMax'),
   winClose: () => invoke('win:close'),
