@@ -8,6 +8,9 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.9.6
+- Nowy układ ekranu Start: tło na środku, kafelek Discorda z liczbą osób, karty aktualności ze strzałkami i kafelek „Graj” w rogu
+
 ## 0.9.5
 - Obrazki w aktualnościach
 - Moje mody: przyciski Zainstaluj / Odinstaluj, a mody z paczki serwera oznaczone jako „W paczce”
