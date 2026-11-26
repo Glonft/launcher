@@ -8,6 +8,10 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.9.7
+- Poprawione strzałki w aktualnościach: równo na środku i tylko wtedy, gdy jest co przewijać
+- Ikony na pasku bocznym mogą mieć inną kolejność albo być schowane, zgodnie z ustawieniami serwera
+
 ## 0.9.6
 - Nowy układ ekranu Start: tło na środku, kafelek Discorda z liczbą osób, karty aktualności ze strzałkami i kafelek „Graj” w rogu
 
