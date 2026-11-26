@@ -54,9 +54,7 @@ function showInfo(info) {
       : '';
     if (info.requiredLauncher) L.getUpdate().then(showUpdate).catch(() => {});
   }
-  if (info.server && info.server.name) { $('scene-server').textContent = info.server.name; $('scene-logo-text').textContent = info.server.name; }
   if (!Array.isArray(info.news)) return;
-  renderSceneNews(info.news);
   for (const id of ['news-list', 'news-full']) {
     const list = $(id);
     list.replaceChildren();
@@ -84,9 +82,8 @@ function applyAppearance(a) {
   if (a && a.colors && T) T.apply(a.colors);
   else if (T) for (const k of Object.keys(T.vars({}))) document.documentElement.style.removeProperty(k);
   try { localStorage.setItem('melina.appearance', JSON.stringify({ colors: (a && a.colors) || null })); } catch { /* bez znaczenia */ }
-  // układ ekranu Start: „Kafelki” albo „Scena”
+  // układ ekranu Start
   const l = (a && a.layout) || {};
-  setHomeStyle(l.style === 'scene' ? 'scene' : 'tiles', a);
   const home = $('view-home');
   for (const c of ['news-left', 'news-below', 'news-hidden', 'mods-first', 'mods-hidden']) home.classList.remove(c);
   if (l.news && l.news !== 'right') home.classList.add(`news-${l.news}`);
@@ -107,7 +104,7 @@ function applyAppearance(a) {
   }).catch(() => {});
 }
 
-// ---------- układ „Scena” ----------
+// ---------- obrazki z panelu (aktualności) ----------
 const imageCache = new Map();
 /** Obrazek z panelu (przez launcher – pobrany raz i sprawdzony) do <img>. */
 function newsImage(img, target) {
@@ -118,54 +115,6 @@ function newsImage(img, target) {
     if (target.tagName === 'IMG') target.src = url; else target.style.backgroundImage = `url("${url}")`;
   });
 }
-function renderSceneNews(news) {
-  const track = $('scene-news-track');
-  track.replaceChildren(...news.slice(0, 10).map((n) => {
-    const card = el('article', { className: `scene-news-card${n.image ? ' has-img' : ''}` },
-      el('div', { className: 'scene-news-img' }),
-      el('div', { className: 'scene-news-body' },
-        n.date ? el('span', { className: 'date', textContent: n.date }) : '',
-        el('h4', { textContent: n.title || '' }),
-        el('p', { textContent: n.body || '' }),
-        el('button', { className: 'scene-more', textContent: 'Czytaj więcej', onclick: () => openNewsItem(n) })));
-    if (n.image) newsImage(n.image, card.querySelector('.scene-news-img'));
-    return card;
-  }));
-  if (!news.length) track.append(el('p', { className: 'muted', textContent: 'Brak aktualności.' }));
-}
-function openNewsItem(n) {
-  showView('news');
-  const item = [...$('news-full').children].find((x) => x.dataset.key === `${n.date}|${n.title}`);
-  if (item) { item.scrollIntoView({ block: 'start' }); item.classList.add('flash'); setTimeout(() => item.classList.remove('flash'), 1500); }
-}
-/** Przenosi przycisk Graj i pasek postępu do kafelka „Scena” albo z powrotem na kartę serwera. */
-function setHomeStyle(style, a) {
-  const playRow = document.querySelector('.play-row');
-  const prog = document.querySelector('.progress');
-  if (style === 'scene') {
-    $('scene-play-slot').append(playRow, prog);
-    const lg = a && a.logo;
-    $('scene-logo-img').classList.toggle('hidden', !lg);
-    $('scene-logo-text').classList.toggle('hidden', !!lg);
-    if (lg) newsImage(lg, $('scene-logo-img'));
-    const inv = $('btn-discord').getAttribute('href');
-    const showDc = !!(a.layout && a.layout.discordCard !== false) && inv && inv !== '#';
-    $('scene-discord').classList.toggle('hidden', !showDc);
-    if (showDc) {
-      $('scene-discord').href = inv;
-      L.discordCounts().then((c) => {
-        $('scene-discord-count').textContent = c && c.members ? `Dołącz do ${c.members} osób na naszym Discordzie!` : 'Kliknij, żeby dołączyć!';
-      }).catch(() => {});
-    }
-  } else {
-    const hero = document.querySelector('.hero');
-    hero.append(playRow, prog);
-  }
-  homeStyle = style;
-  if (!$('view-news').classList.contains('hidden')) return; // ktoś czyta aktualności – nie przełączamy widoku
-  showView('home');
-}
-
 // ---------- pasek górny okna ----------
 $('tb-min').onclick = () => L.winMinimize();
 $('tb-max').onclick = () => L.winToggleMax();
@@ -193,16 +142,12 @@ async function refreshStatus() {
       dot.title = `Online${r.version ? ' – ' + r.version : ''}`;
       $('players-count').textContent = `${r.players.online}/${r.players.max}`;
       $('ping-ms').textContent = `${r.latency} ms`;
-      $('scene-dot').className = 'dot on';
-      $('scene-online-text').textContent = `${r.players.online}/${r.players.max}`;
     } else {
       dot.className = 'dot off';
       dot.title = r.error || 'Offline';
       $('status-text').textContent = 'Offline';
       $('players-count').textContent = '–';
       $('ping-ms').textContent = '–';
-      $('scene-dot').className = 'dot off';
-      $('scene-online-text').textContent = 'Offline';
     }
   } catch (e) {
     $('status-dot').className = 'dot off';
@@ -229,8 +174,6 @@ function renderAccounts(state) {
   av.textContent = '';
   av.style.backgroundImage = `url("${headUrl(a.name)}")`;
   $('rail-head').style.backgroundImage = `url("${headUrl(a.name)}")`;
-  $('scene-nick').textContent = a.name;
-  $('scene-head').style.backgroundImage = `url("${headUrl(a.name)}")`;
 
   const sel = $('account-select');
   sel.replaceChildren();
@@ -1176,10 +1119,8 @@ document.addEventListener('keydown', (e) => {
 
 // ---------- nowy układ: pasek, widoki, menu ⋯, „Moje mody” na ekranie Start ----------
 
-let homeStyle = 'tiles';
 function showView(view) {
-  $('view-home').classList.toggle('hidden', view !== 'home' || homeStyle === 'scene');
-  $('view-scene').classList.toggle('hidden', view !== 'home' || homeStyle !== 'scene');
+  $('view-home').classList.toggle('hidden', view !== 'home');
   $('view-news').classList.toggle('hidden', view !== 'news');
   $('nav-home').classList.toggle('active', view === 'home');
   $('nav-news').classList.toggle('active', view === 'news');
@@ -1189,9 +1130,6 @@ function showView(view) {
 $('nav-home').onclick = () => showView('home');
 $('nav-news').onclick = () => showView('news');
 $('news-all').onclick = (e) => { e.preventDefault(); showView('news'); };
-$('scene-news-all').onclick = (e) => { e.preventDefault(); showView('news'); };
-$('scene-prev').onclick = () => { const t = $('scene-news-track'); t.scrollBy({ left: -t.clientWidth * 0.8, behavior: 'smooth' }); };
-$('scene-next').onclick = () => { const t = $('scene-news-track'); t.scrollBy({ left: t.clientWidth * 0.8, behavior: 'smooth' }); };
 $('home-mods-open').onclick = (e) => { e.preventDefault(); openMyMods(); };
 
 function renderHomeMods() {
