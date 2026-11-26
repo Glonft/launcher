@@ -32,7 +32,6 @@ function showInfo(info) {
   if (srv) {
     currentServer = srv;
     $('server-name').textContent = srv.name || 'Serwer';
-    $('server-addr').textContent = srv.port === 25565 ? srv.host : `${srv.host}:${srv.port}`;
   }
   if ('announcement' in info) {
     const a = info.announcement;
@@ -41,12 +40,12 @@ function showInfo(info) {
     box.classList.toggle('warn', !!(a && a.level === 'warn'));
     box.textContent = (a && a.text) || '';
   }
-  if ('appearance' in info) applyAppearance(info.appearance);
   if ('discord' in info) {
     const d = $('btn-discord');
     d.classList.toggle('hidden', !info.discord);
     d.href = info.discord || '#';
   }
+  if ('appearance' in info) applyAppearance(info.appearance);
   if ('requiredLauncher' in info) {
     const box = $('launcher-outdated');
     box.classList.toggle('hidden', !info.requiredLauncher);
@@ -55,7 +54,9 @@ function showInfo(info) {
       : '';
     if (info.requiredLauncher) L.getUpdate().then(showUpdate).catch(() => {});
   }
+  if (info.server && info.server.name) { $('scene-server').textContent = info.server.name; $('scene-logo-text').textContent = info.server.name; }
   if (!Array.isArray(info.news)) return;
+  renderSceneNews(info.news);
   for (const id of ['news-list', 'news-full']) {
     const list = $(id);
     list.replaceChildren();
@@ -63,11 +64,17 @@ function showInfo(info) {
     for (const n of info.news) {
       const item = el('div', { className: 'news-item' });
       if (n.date) item.append(el('span', { className: 'date', textContent: n.date }));
+      if (id === 'news-full' && n.image) { const img = el('img', { className: 'news-img', alt: '' }); newsImage(n.image, img); item.append(img); }
       item.append(el('h4', { textContent: n.title || '' }), el('p', { textContent: n.body || '' }));
+      item.dataset.key = `${n.date}|${n.title}`;
       list.append(item);
     }
   }
 }
+
+// bez przeciągania obrazków i tekstu z okna launchera (pliki .jar/.zip przeciąga się do niego, nie z niego)
+document.addEventListener('dragstart', (e) => { if (!(e.target.closest && e.target.closest('input, textarea'))) e.preventDefault(); });
+document.addEventListener('contextmenu', (e) => { if (!(e.target.closest && e.target.closest('input, textarea, #log'))) e.preventDefault(); });
 
 // ---------- wygląd od serwera (kolory, tło, układ) ----------
 let currentBg = null;
@@ -77,8 +84,9 @@ function applyAppearance(a) {
   if (a && a.colors && T) T.apply(a.colors);
   else if (T) for (const k of Object.keys(T.vars({}))) document.documentElement.style.removeProperty(k);
   try { localStorage.setItem('melina.appearance', JSON.stringify({ colors: (a && a.colors) || null })); } catch { /* bez znaczenia */ }
-  // układ ekranu Start
+  // układ ekranu Start: „Kafelki” albo „Scena”
   const l = (a && a.layout) || {};
+  setHomeStyle(l.style === 'scene' ? 'scene' : 'tiles', a);
   const home = $('view-home');
   for (const c of ['news-left', 'news-below', 'news-hidden', 'mods-first', 'mods-hidden']) home.classList.remove(c);
   if (l.news && l.news !== 'right') home.classList.add(`news-${l.news}`);
@@ -97,6 +105,65 @@ function applyAppearance(a) {
     $('bg-layer').style.backgroundImage = `url("${url}")`;
     document.body.classList.add('has-bg');
   }).catch(() => {});
+}
+
+// ---------- układ „Scena” ----------
+const imageCache = new Map();
+/** Obrazek z panelu (przez launcher – pobrany raz i sprawdzony) do <img>. */
+function newsImage(img, target) {
+  if (!img) return;
+  if (!imageCache.has(img.sha1)) imageCache.set(img.sha1, L.image(img).catch(() => null));
+  imageCache.get(img.sha1).then((url) => {
+    if (!url) { target.remove(); return; }
+    if (target.tagName === 'IMG') target.src = url; else target.style.backgroundImage = `url("${url}")`;
+  });
+}
+function renderSceneNews(news) {
+  const track = $('scene-news-track');
+  track.replaceChildren(...news.slice(0, 10).map((n) => {
+    const card = el('article', { className: `scene-news-card${n.image ? ' has-img' : ''}` },
+      el('div', { className: 'scene-news-img' }),
+      el('div', { className: 'scene-news-body' },
+        n.date ? el('span', { className: 'date', textContent: n.date }) : '',
+        el('h4', { textContent: n.title || '' }),
+        el('p', { textContent: n.body || '' }),
+        el('button', { className: 'scene-more', textContent: 'Czytaj więcej', onclick: () => openNewsItem(n) })));
+    if (n.image) newsImage(n.image, card.querySelector('.scene-news-img'));
+    return card;
+  }));
+  if (!news.length) track.append(el('p', { className: 'muted', textContent: 'Brak aktualności.' }));
+}
+function openNewsItem(n) {
+  showView('news');
+  const item = [...$('news-full').children].find((x) => x.dataset.key === `${n.date}|${n.title}`);
+  if (item) { item.scrollIntoView({ block: 'start' }); item.classList.add('flash'); setTimeout(() => item.classList.remove('flash'), 1500); }
+}
+/** Przenosi przycisk Graj i pasek postępu do kafelka „Scena” albo z powrotem na kartę serwera. */
+function setHomeStyle(style, a) {
+  const playRow = document.querySelector('.play-row');
+  const prog = document.querySelector('.progress');
+  if (style === 'scene') {
+    $('scene-play-slot').append(playRow, prog);
+    const lg = a && a.logo;
+    $('scene-logo-img').classList.toggle('hidden', !lg);
+    $('scene-logo-text').classList.toggle('hidden', !!lg);
+    if (lg) newsImage(lg, $('scene-logo-img'));
+    const inv = $('btn-discord').getAttribute('href');
+    const showDc = !!(a.layout && a.layout.discordCard !== false) && inv && inv !== '#';
+    $('scene-discord').classList.toggle('hidden', !showDc);
+    if (showDc) {
+      $('scene-discord').href = inv;
+      L.discordCounts().then((c) => {
+        $('scene-discord-count').textContent = c && c.members ? `Dołącz do ${c.members} osób na naszym Discordzie!` : 'Kliknij, żeby dołączyć!';
+      }).catch(() => {});
+    }
+  } else {
+    const hero = document.querySelector('.hero');
+    hero.append(playRow, prog);
+  }
+  homeStyle = style;
+  if (!$('view-news').classList.contains('hidden')) return; // ktoś czyta aktualności – nie przełączamy widoku
+  showView('home');
 }
 
 // ---------- pasek górny okna ----------
@@ -126,12 +193,16 @@ async function refreshStatus() {
       dot.title = `Online${r.version ? ' – ' + r.version : ''}`;
       $('players-count').textContent = `${r.players.online}/${r.players.max}`;
       $('ping-ms').textContent = `${r.latency} ms`;
+      $('scene-dot').className = 'dot on';
+      $('scene-online-text').textContent = `${r.players.online}/${r.players.max}`;
     } else {
       dot.className = 'dot off';
       dot.title = r.error || 'Offline';
       $('status-text').textContent = 'Offline';
       $('players-count').textContent = '–';
       $('ping-ms').textContent = '–';
+      $('scene-dot').className = 'dot off';
+      $('scene-online-text').textContent = 'Offline';
     }
   } catch (e) {
     $('status-dot').className = 'dot off';
@@ -158,6 +229,8 @@ function renderAccounts(state) {
   av.textContent = '';
   av.style.backgroundImage = `url("${headUrl(a.name)}")`;
   $('rail-head').style.backgroundImage = `url("${headUrl(a.name)}")`;
+  $('scene-nick').textContent = a.name;
+  $('scene-head').style.backgroundImage = `url("${headUrl(a.name)}")`;
 
   const sel = $('account-select');
   sel.replaceChildren();
@@ -391,13 +464,17 @@ $('btn-skin-reset').onclick = async (e) => {
 // ---------- granie ----------
 function updatePlayButton() {
   const b = $('btn-play');
-  const labels = { idle: 'Graj', preparing: 'Przygotowanie…', running: 'Gra uruchomiona', busy: 'Proszę czekać…' };
+  const labels = { idle: 'Graj', preparing: 'Anuluj', running: 'Gra uruchomiona', busy: 'Proszę czekać…' };
   $('play-label').textContent = labels[appState] || 'Graj';
-  b.disabled = appState !== 'idle' || !accountsState.active;
+  b.classList.toggle('cancel', appState === 'preparing');
+  b.disabled = !(appState === 'preparing' || (appState === 'idle' && accountsState.active));
   $('btn-repair').disabled = appState !== 'idle';
   $('btn-more-repair').disabled = appState !== 'idle';
 }
-$('btn-play').onclick = () => { appState = 'preparing'; updatePlayButton(); L.play(); };
+$('btn-play').onclick = () => {
+  if (appState === 'preparing') { L.cancelPlay(); $('btn-play').disabled = true; return; } // „Anuluj”
+  appState = 'preparing'; updatePlayButton(); L.play();
+};
 
 L.on('log', addLog);
 L.on('info', showInfo);
@@ -477,10 +554,7 @@ let pendingDir = null;
 
 function updateRamLabels() {
   const max = Number($('ram-max').value);
-  $('ram-min').max = max;
-  if (Number($('ram-min').value) > max) $('ram-min').value = max;
   $('ram-max-val').textContent = `${max} GB`;
-  $('ram-min-val').textContent = `${$('ram-min').value} GB`;
 }
 
 function fmtBytes(n) {
@@ -591,8 +665,7 @@ async function openSettings() {
   const { settings: s, system } = await L.getSettings();
   $('ram-max').max = system.maxAllowedRamGB;
   $('ram-max').value = s.maxRamGB;
-  $('ram-min').value = s.minRamGB;
-  $('ram-hint').textContent = `Twój komputer ma ${system.totalRamGB} GB RAM. Dla tej paczki zalecane 6–8 GB.`;
+  $('ram-hint').textContent = `Twój komputer ma ${system.totalRamGB} GB RAM.`;
   updateRamLabels();
   $('win-w').value = s.width;
   $('win-h').value = s.height;
@@ -617,7 +690,6 @@ let settingsSnapshot = null;
 function collectSettings() {
   return {
     maxRamGB: Number($('ram-max').value),
-    minRamGB: Number($('ram-min').value),
     width: Number($('win-w').value),
     height: Number($('win-h').value),
     fullscreen: $('fullscreen').checked,
@@ -651,7 +723,6 @@ $('btn-settings').onclick = openSettings;
 $('discord-rpc').onchange = () => { $('discord-rpc-button').disabled = !$('discord-rpc').checked; };
 
 $('ram-max').oninput = updateRamLabels;
-$('ram-min').oninput = updateRamLabels;
 $('fullscreen').onchange = () => { $('win-w').disabled = $('win-h').disabled = $('fullscreen').checked; };
 $('btn-folder').onclick = (e) => { e.preventDefault(); L.openFolder(); };
 
@@ -720,7 +791,6 @@ async function init() {
   const a = await L.getApp();
   document.title = a.appName;
   $('tb-title').textContent = /launcher/i.test(a.appName) ? a.appName : `${a.appName} Launcher`;
-  $('app-version').textContent = `v${a.version}`;
   $('version-info').dataset.version = a.version;
   if (a.portable) $('version-info').dataset.portable = '1';
   renderVersionInfo();
@@ -798,7 +868,13 @@ function playerModItem(m) {
     const sub = [m.version, (m.requiredBy || []).length ? `wymagany przez: ${m.requiredBy.map((r) => (myMods.find((x) => x.id === r) || {}).name || r).join(', ')}` : ''].filter(Boolean).join(' · ');
     return mmItem(m.icon, title, sub, [
       m.blocked ? null : mmBtn(m.enabled ? 'Wyłącz' : 'Włącz', 'small-btn', async () => { await L.myModsToggle(m.id, !m.enabled); await refreshMyMods(); }),
-      mmBtn('Usuń', 'small-btn', async () => { await L.myModsRemove(m.id); await refreshMyMods(); }),
+      mmBtn('Odinstaluj', 'small-btn danger', async () => {
+        await L.myModsRemove(m.id);
+        $('mymods-msg').textContent = `Odinstalowano: ${m.name || m.file}`;
+        await refreshMyMods();
+        refreshResultActions(); // przycisk przy wyniku wraca od razu do „Zainstaluj”
+        installedCache = null;
+      }),
     ].filter(Boolean), m.enabled && !m.blocked ? '' : 'off', m.projectId ? `https://modrinth.com/project/${encodeURIComponent(m.projectId)}` : null);
 }
 
@@ -807,6 +883,7 @@ async function openMyMods() {
   $('mymods-updates').replaceChildren();
   $('mymods-dialog').classList.remove('hidden');
   await refreshMyMods().catch((e) => { $('mymods-msg').textContent = cleanErr(e); });
+  loadPackIds().then(() => refreshResultActions());
   setMmKind(mm.kind);
   $('mymods-q').focus();
 }
@@ -884,34 +961,63 @@ function renderCats() {
 
 const mrLink = (id, text) => el('a', { href: `https://modrinth.com/project/${encodeURIComponent(id)}`, target: '_blank', className: 'mm-link', textContent: text, title: 'Otwórz stronę na Modrinth' });
 
-function modResult(h, have) {
+// projekty z paczki serwera – w wynikach jako „W paczce 🔒” (bez możliwości dodania)
+let packIds = { projects: new Set(), modIds: new Set() };
+async function loadPackIds() {
+  try {
+    const r = await L.myModsPackIds();
+    packIds = { projects: new Set(r.projects || []), modIds: new Set((r.modIds || []).map((x) => String(x).toLowerCase())) };
+  } catch { /* bez tego tylko nie oznaczymy modów z paczki */ }
+}
+const inPack = (h) => packIds.projects.has(h.id) || (h.kind === 'mod' && h.slug && packIds.modIds.has(String(h.slug).toLowerCase().replace(/-/g, '_')))
+  || (h.kind === 'mod' && h.slug && packIds.modIds.has(String(h.slug).toLowerCase()));
+
+/** Przycisk przy wyniku: Zainstaluj / Odinstaluj / W paczce 🔒. */
+function resultAction(h) {
+  if (inPack(h)) return el('span', { className: 'mm-tag lock', title: 'Ten mod jest już w paczce serwera', textContent: 'W paczce 🔒' });
+  const mine = myMods.find((m) => m.projectId === h.id);
+  if (mine) {
+    return mmBtn('Odinstaluj', 'ghost-sm danger', async () => {
+      if (mine.requiredBy && mine.requiredBy.length && !confirm(`${mine.name || h.title} jest potrzebny dla: ${mine.requiredBy.join(', ')}. Odinstalować mimo to?`)) return;
+      await L.myModsRemove(mine.id);
+      $('mymods-msg').textContent = `Odinstalowano: ${mine.name || h.title}`;
+      await refreshMyMods();
+      refreshResultActions();
+    });
+  }
+  return mmBtn('Zainstaluj', 'primary-sm', async () => {
+    if (h.kind === 'shader' && await L.myModsNeedIris()) {
+      if (!confirm('Shadery działają tylko z modem Iris. Zainstalować też Iris?')) return;
+      await L.myModsAddModrinth('iris', 'mod');
+    }
+    if ((h.needsServer || h.serverOnly) && !confirm(h.serverOnly
+      ? `${h.title} działa tylko na serwerze – u Ciebie nic nie zmieni. Zainstalować mimo to?`
+      : `${h.title} musi być też na serwerze. Bez tego możesz nie wejść na serwer (wtedy użyj „Uruchom bez moich modów”). Zainstalować mimo to?`)) return;
+    const added = await L.myModsAddModrinth(h.id, h.kind);
+    $('mymods-msg').textContent = added.length > 1 ? `Zainstalowano: ${added.join(', ')}` : `Zainstalowano: ${added[0] || h.title}`;
+    await refreshMyMods();
+    refreshResultActions();
+  });
+}
+/** Odświeża przyciski przy wynikach (np. po (od)instalowaniu) – bez ponownego wyszukiwania. */
+function refreshResultActions() {
+  const st = mmState(mm.kind);
+  const byId = new Map((st.hits || []).map((h) => [h.id, h]));
+  for (const item of $('mymods-results').querySelectorAll('.mm-item')) {
+    const h = byId.get(item.dataset.id);
+    if (h) item.querySelector('.mm-actions').replaceChildren(resultAction(h));
+  }
+}
+
+function modResult(h) {
   const t = el('div', { className: 'mm-title' }, mrLink(h.id, h.title), el('span', { className: 'mm-tag', textContent: `⬇ ${fmtDl(h.downloads)}` }));
   if (h.needsServer || h.serverOnly) t.append(el('span', { className: 'mm-tag disk', textContent: h.serverOnly ? 'tylko serwer' : 'wymaga serwera' }));
-  return mmItem(h.icon, t, h.description || '',
-    [have.has(h.id) ? el('span', { className: 'mm-tag', textContent: 'dodany' }) : mmBtn('Dodaj', 'primary-sm', async () => {
-      if (h.kind === 'shader' && await L.myModsNeedIris()) {
-        if (!confirm('Shadery działają tylko z modem Iris. Dodać Iris do Twoich modów?')) return;
-        await L.myModsAddModrinth('iris', 'mod');
-      }
-      if ((h.needsServer || h.serverOnly) && !confirm(h.serverOnly
-        ? `${h.title} działa tylko na serwerze – u Ciebie nic nie zmieni. Dodać mimo to?`
-        : `${h.title} musi być też na serwerze. Bez tego możesz nie wejść na serwer (wtedy użyj „Uruchom bez moich modów”). Dodać mimo to?`)) return;
-      const added = await L.myModsAddModrinth(h.id, h.kind);
-      $('mymods-msg').textContent = added.length > 1 ? `Dodano: ${added.join(', ')}` : `Dodano: ${added[0] || h.title}`;
-      await refreshMyMods();
-      const st = new Set(myMods.map((m) => m.projectId));
-      for (const item of $('mymods-results').querySelectorAll('.mm-item')) {
-        if (item.dataset.id && st.has(item.dataset.id)) {
-          item.querySelector('.mm-actions').replaceChildren(el('span', { className: 'mm-tag', textContent: 'dodany' }));
-        }
-      }
-    })], '', `https://modrinth.com/project/${encodeURIComponent(h.id)}`);
+  return mmItem(h.icon, t, h.description || '', [resultAction(h)], inPack(h) ? 'in-pack' : '', `https://modrinth.com/project/${encodeURIComponent(h.id)}`);
 }
 
 function renderResults(hits, append = false) {
   const box = $('mymods-results');
-  const have = new Set(myMods.map((m) => m.projectId));
-  const items = hits.map((h) => { const it = modResult(h, have); it.dataset.id = h.id; return it; });
+  const items = hits.map((h) => { const it = modResult(h); it.dataset.id = h.id; return it; });
   if (!append) {
     if (!items.length) { box.replaceChildren(el('p', { className: 'hint mm-empty', textContent: 'Nic nie znaleziono. Spróbuj innej nazwy (najlepiej po angielsku) albo innej kategorii.' })); return; }
     box.replaceChildren(...items);
@@ -1070,16 +1176,22 @@ document.addEventListener('keydown', (e) => {
 
 // ---------- nowy układ: pasek, widoki, menu ⋯, „Moje mody” na ekranie Start ----------
 
+let homeStyle = 'tiles';
 function showView(view) {
-  $('view-home').classList.toggle('hidden', view !== 'home');
+  $('view-home').classList.toggle('hidden', view !== 'home' || homeStyle === 'scene');
+  $('view-scene').classList.toggle('hidden', view !== 'home' || homeStyle !== 'scene');
   $('view-news').classList.toggle('hidden', view !== 'news');
   $('nav-home').classList.toggle('active', view === 'home');
   $('nav-news').classList.toggle('active', view === 'news');
-  $('title').textContent = view === 'news' ? 'Aktualności' : 'Start';
+  $('title').textContent = view === 'news' ? 'Aktualności' : '';
+  $('title').classList.toggle('hidden', view !== 'news');
 }
 $('nav-home').onclick = () => showView('home');
 $('nav-news').onclick = () => showView('news');
 $('news-all').onclick = (e) => { e.preventDefault(); showView('news'); };
+$('scene-news-all').onclick = (e) => { e.preventDefault(); showView('news'); };
+$('scene-prev').onclick = () => { const t = $('scene-news-track'); t.scrollBy({ left: -t.clientWidth * 0.8, behavior: 'smooth' }); };
+$('scene-next').onclick = () => { const t = $('scene-news-track'); t.scrollBy({ left: t.clientWidth * 0.8, behavior: 'smooth' }); };
 $('home-mods-open').onclick = (e) => { e.preventDefault(); openMyMods(); };
 
 function renderHomeMods() {

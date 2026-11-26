@@ -13,7 +13,7 @@ const { syncModpack } = require('./src/sync');
 const { downloadInBackground } = require('./src/seed');
 const { ensureServerEntry } = require('./src/servers-dat');
 const { sendHello } = require('./src/stats');
-const { PlayerMods, packModIds, packModInfo, IRIS } = require('./src/player-mods');
+const { PlayerMods, packModIds, packModInfo, packProjects, IRIS } = require('./src/player-mods');
 const { enabledAddons } = require('./src/sync');
 const { ensureJava } = require('./src/java');
 const { ensureLoader, LOADERS } = require('./src/loaders');
@@ -200,13 +200,72 @@ function appearanceFrom(manifest) {
   const background = b && /^https:\/\//.test(b.url || '') && /^[0-9a-f]{40}$/i.test(b.sha1 || '')
     ? { url: b.url, sha1: b.sha1.toLowerCase(), dim: Math.min(90, Math.max(0, Number(b.dim) || 0)), blur: Math.min(20, Math.max(0, Number(b.blur) || 0)) }
     : null;
+  const img = (x) => (x && /^https:\/\//.test(x.url || '') && /^[0-9a-f]{40}$/i.test(x.sha1 || '') ? { url: x.url, sha1: x.sha1.toLowerCase() } : null);
   const l = a.layout || {};
   const layout = {
+    style: l.style === 'scene' ? 'scene' : 'tiles',
+    discordCard: l.discordCard !== false,
     news: ['right', 'left', 'below', 'hidden'].includes(l.news) ? l.news : 'right',
     modsFirst: !!l.modsFirst,
     modsHidden: !!l.modsHidden,
   };
-  return { colors, background, layout };
+  return { colors, background, layout, logo: img(a.logo), icon: img(a.icon) };
+}
+
+/** Obrazek z panelu (logo, ikona, obrazek newsa): pobierany raz do folderu launchera i sprawdzany sumą. Zwraca ścieżkę pliku. */
+async function cachedImage(img) {
+  if (!img || !/^https:\/\//.test(img.url || '') || !/^[0-9a-f]{40}$/i.test(img.sha1 || '')) return null;
+  const dir = path.join(app.getPath('userData'), 'images');
+  const ext = (img.url.match(/\.(jpe?g|png|webp)(?:$|\?)/i) || [, 'png'])[1].toLowerCase();
+  const file = path.join(dir, `${img.sha1.toLowerCase()}.${ext}`);
+  if (fs.existsSync(file)) return file;
+  const res = await fetch(img.url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length > 8 * 1024 * 1024) throw new Error('za duży obrazek');
+  if (require('crypto').createHash('sha1').update(buf).digest('hex') !== img.sha1.toLowerCase()) throw new Error('obrazek nie zgadza się z sumą kontrolną');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(file, buf);
+  return file;
+}
+const MIME = { png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
+async function imageDataUrl(img) {
+  const file = await cachedImage(img);
+  if (!file) return null;
+  return `data:${MIME[path.extname(file).slice(1)] || 'image/png'};base64,${fs.readFileSync(file).toString('base64')}`;
+}
+
+/** Ikona okna i paska zadań z panelu (ikona pliku .exe jest wbudowana przy budowaniu). */
+async function applyWindowIcon(manifest) {
+  if (!win || win.isDestroyed()) return;
+  const a = appearanceFrom(manifest);
+  try {
+    if (a && a.icon) {
+      const file = await cachedImage(a.icon);
+      const icon = file ? nativeImage.createFromPath(file) : null;
+      if (icon && !icon.isEmpty()) win.setIcon(icon);
+    } else {
+      const def = path.join(__dirname, 'renderer', 'app-icon.png');
+      if (fs.existsSync(def)) win.setIcon(nativeImage.createFromPath(def));
+    }
+  } catch (e) { log(`Ikona launchera: ${e.message}`); }
+}
+
+/** Liczba osób na Discordzie z zaproszenia (publiczne API Discorda, bez klucza) – co najwyżej raz na 10 minut. */
+let discordCounts = { at: 0, code: null, data: null };
+async function discordInviteCounts(manifest) {
+  const link = discordLink(manifest);
+  const code = link && (link.match(/(?:discord\.gg|discord\.com\/invite)\/([\w-]+)/i) || [])[1];
+  if (!code) return null;
+  if (discordCounts.code === code && Date.now() - discordCounts.at < 10 * 60 * 1000) return discordCounts.data;
+  try {
+    const res = await fetch(`https://discord.com/api/v9/invites/${encodeURIComponent(code)}?with_counts=true`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const j = await res.json();
+    const data = { members: j.approximate_member_count || null, online: j.approximate_presence_count || null, name: (j.guild && j.guild.name) || null };
+    discordCounts = { at: Date.now(), code, data };
+    return data;
+  } catch { return discordCounts.code === code ? discordCounts.data : null; }
 }
 
 /** Tło z panelu: pobierane raz i trzymane w folderze launchera. Zwraca data: URL (albo null). */
@@ -295,6 +354,15 @@ function discordLink(manifest) {
 // ---------- gra ----------
 
 /** Java + mody + silnik (vanilla/Fabric/NeoForge). Zwraca wszystko, czego trzeba do startu. */
+// ---------- anulowanie przygotowania gry ----------
+let cancelRequested = false;
+function checkCancel() {
+  if (!cancelRequested) return;
+  const e = new Error('Anulowano.');
+  e.cancelled = true;
+  throw e;
+}
+
 async function prepare(dir) {
   progress('Sprawdzanie paczki...', 0);
   const manifest = await fetchManifest(dir);
@@ -306,14 +374,18 @@ async function prepare(dir) {
     throw new Error(`Serwer wymaga launchera w wersji ${need} lub nowszej (masz ${app.getVersion()}). Zaktualizuj launcher – przycisk na górze okna albo strona serwera.`);
   }
 
+  checkCancel();
   const java = await ensureJava(dir, log, progress, manifest.java);
+  checkCancel();
   progress('Synchronizacja modów...', 0);
-  const seedTodo = await syncModpack(manifest, dir, log, progress, settings.get().addons || {});
+  const seedTodo = await syncModpack(manifest, dir, log, progress, settings.get().addons || {}, checkCancel);
   startSeedDownloads(seedTodo);
+  checkCancel();
 
   const type = String((manifest.loader && manifest.loader.type) || 'vanilla').toLowerCase();
   progress(`Przygotowanie: ${LOADERS[type] || type}...`, 0);
   const loader = await ensureLoader(dir, manifest, java.java, log);
+  checkCancel();
   return { manifest, java, loader };
 }
 
@@ -333,6 +405,7 @@ let quitWhenSeedDone = false;
 async function play(opts = {}) {
   if (running || busy) return;
   running = true;
+  cancelRequested = false;
   setState('preparing');
   const s = settings.get();
   const dir = s.gameDir;
@@ -346,6 +419,7 @@ async function play(opts = {}) {
       new PlayerMods(dir, manifest.blockedMods || []).install(packModIds(dir, manifest), !!opts.withoutMine, log);
     } catch (e) { log(`Moje mody: ${e.message}`); }
 
+    checkCancel();
     progress('Logowanie...', 0);
     const authorization = await accounts.getLaunchAuth();
 
@@ -365,6 +439,7 @@ async function play(opts = {}) {
     const extraJvm = s.jvmArgs ? s.jvmArgs.split(/\s+/).filter(Boolean) : [];
     log(`RAM: ${s.minRamGB}–${s.maxRamGB} GB, okno: ${s.fullscreen ? 'pełny ekran' : `${s.width}×${s.height}`}`);
 
+    checkCancel();
     progress('Uruchamianie gry...', 1);
     const proc = await launcher.launch({
       root: dir,
@@ -377,28 +452,20 @@ async function play(opts = {}) {
       window: s.fullscreen ? { fullscreen: true } : { width: s.width, height: s.height },
       customArgs: [...loader.jvmArgs, ...extraJvm],
       quickPlay: { type: 'multiplayer', identifier: `${server.host}:${server.port}` },
-      overrides: { detached: s.afterLaunch === 'close' },
     });
     if (!proc) throw new Error('Nie udało się uruchomić gry – zobacz log.');
+    if (cancelRequested) { try { proc.kill(); } catch { /* już zamknięta */ } checkCancel(); }
     setState('running');
     gameStartedAt = Date.now();
     safePresence();
 
-    if (s.afterLaunch === 'close' && seedJob) {
-      // nie zamykamy w trakcie pobierania w tle – launcher zamknie się sam po pobraniu
-      proc.unref();
-      log('Launcher zamknie się po pobraniu dodatku w tle.');
-      quitWhenSeedDone = true;
-      win.minimize();
-    } else if (s.afterLaunch === 'close') {
-      proc.unref();
-      setTimeout(() => app.quit(), 3000);
-    } else if (s.afterLaunch === 'minimize') {
+    if (s.afterLaunch === 'minimize') {
       win.minimize();
     }
   } catch (e) {
     running = false;
     setState('idle');
+    if (e && e.cancelled) { log('Uruchamianie anulowane.'); progress('Anulowano', 0); return; }
     send('error', e.message || String(e));
   }
 }
@@ -570,6 +637,7 @@ app.whenReady().then(() => {
     let info;
     try { info = publicInfo(await fetchManifest(gameDir(), true)); } catch { info = publicInfo(cachedManifest()); }
     safePresence(); // świeży manifest = może nowe Application ID / zaproszenie
+    applyWindowIcon(cachedManifest());
     return info;
   });
   ipcMain.handle('server:ping', async () => {
@@ -727,6 +795,12 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('game:play', (_e, opts) => play(opts || {}));
+  ipcMain.handle('game:cancel', () => {
+    if (!running || gameStartedAt) return false; // gra już działa – tego nie przerywamy
+    cancelRequested = true;
+    progress('Anulowanie… (kończę bieżący krok)', 0);
+    return true;
+  });
 
   // ---------- Moje mody ----------
   const pmTarget = () => {
@@ -741,6 +815,15 @@ app.whenReady().then(() => {
   ipcMain.handle('mymods:list', () => {
     const m = cachedManifest();
     return { list: pm().list(), mc: m && m.minecraft, loader: m && m.loader && m.loader.type };
+  });
+  // projekty Modrinth z paczki serwera (+ modId z plików) – w wyszukiwarce pokazujemy je jako „W paczce”
+  ipcMain.handle('mymods:packIds', async () => {
+    const m = cachedManifest();
+    if (!m) return { projects: [], modIds: [] };
+    const dir = gameDir();
+    let modIds = [];
+    try { modIds = [...packModIds(dir, m)]; } catch { /* pliki jeszcze niepobrane */ }
+    return { projects: await packProjects(dir, m).catch(() => []), modIds };
   });
   ipcMain.handle('mymods:search', (_e, q, opts) => { const t = pmTarget(); return PlayerMods.search(String(q || ''), t.mc, t.loader, opts || {}, blockedList()); });
   // wszystkie zainstalowane mody: z paczki serwera (bez usuwania) + mody gracza
@@ -763,7 +846,9 @@ app.whenReady().then(() => {
     if (running) throw new Error('Zamknij grę, zanim zmienisz mody.');
     const t = pmTarget();
     const k = ['mod', 'shader', 'resourcepack'].includes(kind) ? kind : 'mod';
-    return pm().addModrinth(k === 'mod' && id === 'iris' ? IRIS : String(id), t.mc, t.loader, k);
+    const p = pm();
+    p.packIds = new Set(await packProjects(gameDir(), cachedManifest()).catch(() => []));
+    return p.addModrinth(k === 'mod' && id === 'iris' ? IRIS : String(id), t.mc, t.loader, k);
   });
   ipcMain.handle('mymods:addFile', async (_e, filePath) => {
     if (running) throw new Error('Zamknij grę, zanim zmienisz mody.');
@@ -792,6 +877,10 @@ app.whenReady().then(() => {
     if (/^https:\/\//.test(url)) shell.openExternal(url);
   });
 
+  ipcMain.handle('appearance:image', async (_e, img) => {
+    try { return await imageDataUrl(img); } catch (e) { log(`Nie udało się wczytać obrazka (${e.message}).`); return null; }
+  });
+  ipcMain.handle('discord:counts', () => discordInviteCounts(cachedManifest()));
   ipcMain.handle('appearance:background', async (_e, bg) => {
     try { return await backgroundImage(bg); } catch (e) { log(`Nie udało się wczytać tła launchera (${e.message}).`); return null; }
   });
@@ -867,6 +956,7 @@ app.whenReady().then(() => {
       firstLoad = false;
       if (!win.isMaximized()) win.center(); // na środek tylko przy starcie
       setTimeout(() => prefetchSkin(), 2500); // logowanie Microsoft w tle – okno skina będzie od razu gotowe
+      applyWindowIcon(cachedManifest()); // ikona z panelu (z dysku, jeśli już pobrana)
     }
     send('winstate', { maximized: win.isMaximized() });
   });

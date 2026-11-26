@@ -19,7 +19,10 @@ class SettingsStore {
   get() {
     let saved = {};
     try { saved = JSON.parse(fs.readFileSync(this.file, 'utf8')); } catch { /* brak pliku */ }
-    return { ...this.defaults, ...saved };
+    const s = { ...this.defaults, ...saved };
+    if (!['minimize', 'keep'].includes(s.afterLaunch)) s.afterLaunch = 'minimize'; // dawne „zamknij launcher”
+    s.minRamGB = Math.min(2, Number(s.maxRamGB) || 2); // jeden suwak RAM
+    return s;
   }
 
   /** Waliduje i zapisuje; zwraca zapisane ustawienia albo rzuca błąd z opisem. */
@@ -32,15 +35,14 @@ class SettingsStore {
     s.minRamGB = Number(s.minRamGB);
     if (!(s.maxRamGB >= 2)) throw new Error('Maksymalny RAM musi wynosić co najmniej 2 GB.');
     if (s.maxRamGB > maxAllowedRamGB) throw new Error(`Maksymalny RAM może wynosić najwyżej ${maxAllowedRamGB} GB (zostaw trochę dla systemu).`);
-    if (!(s.minRamGB >= 1)) s.minRamGB = 1;
-    if (s.minRamGB > s.maxRamGB) s.minRamGB = s.maxRamGB;
+    s.minRamGB = Math.min(2, s.maxRamGB); // jeden suwak – minimalna pamięć ustawiana sama
 
     s.width = Math.round(Number(s.width)) || 1280;
     s.height = Math.round(Number(s.height)) || 720;
     if (s.width < 640 || s.height < 480) throw new Error('Minimalna rozdzielczość okna to 640×480.');
     s.fullscreen = !!s.fullscreen;
 
-    if (!['minimize', 'keep', 'close'].includes(s.afterLaunch)) s.afterLaunch = 'minimize';
+    if (!['minimize', 'keep'].includes(s.afterLaunch)) s.afterLaunch = 'minimize'; // „zamknij” już nie ma
     // rozmiar interfejsu: 'auto' albo liczba 0.8–2
     if (s.uiScale !== 'auto') {
       const z = Number(s.uiScale);

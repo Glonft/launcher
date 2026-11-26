@@ -34,9 +34,8 @@
 
     <div class="content">
       <header class="topbar">
-        <h1 id="title">Start</h1>
+        <h1 id="title" class="hidden"></h1>
         <div class="topbar-space"></div>
-        <span id="app-version" class="muted small"></span>
         <div id="account-none" class="hidden">
           <button id="btn-add-account-first" class="accent-btn">Dodaj konto, aby grać</button>
         </div>
@@ -71,7 +70,7 @@
               <img src="logo.png" class="hero-logo" alt="">
               <div class="hero-titles">
                 <h2 id="server-name" class="server-name">MelinaSMP</h2>
-                <div id="server-addr" class="muted small"></div>
+
               </div>
               <button id="btn-ping" class="icon-btn" title="Odśwież status" aria-label="Odśwież status"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
             </div>
@@ -113,6 +112,31 @@
         <section class="card news">
           <div class="card-head"><h3>Aktualności</h3><a href="#" id="news-all">Wszystkie</a></div>
           <div id="news-list" class="news-list"><p class="muted">Ładowanie…</p></div>
+        </section>
+      </main>
+
+      <!-- układ „Scena” (z panelu): logo na środku, kafelki w rogach -->
+      <main id="view-scene" class="scene hidden">
+        <a id="scene-discord" class="scene-card scene-discord hidden" href="#" target="_blank">
+          <span class="scene-discord-ico"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19.6 5.3A17.6 17.6 0 0 0 15.3 4l-.5 1.1a16.3 16.3 0 0 0-5 0L9.3 4A17.5 17.5 0 0 0 5 5.3C2.3 9.4 1.6 13.4 1.9 17.3a17.7 17.7 0 0 0 5.4 2.7l1.1-1.8a11.4 11.4 0 0 1-1.8-.9l.4-.3a12.6 12.6 0 0 0 10.8 0l.4.3c-.6.3-1.2.6-1.8.9l1.1 1.8a17.6 17.6 0 0 0 5.4-2.7c.4-4.5-.7-8.5-3.3-12zM8.7 14.9c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1zm6.6 0c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1z"/></svg></span>
+          <span><small>Społeczność</small><b>Dołącz do naszego Discorda</b><span id="scene-discord-count" class="muted"></span></span>
+        </a>
+        <div class="scene-logo"><img id="scene-logo-img" class="hidden" alt=""><h1 id="scene-logo-text">MelinaSMP</h1></div>
+        <section class="scene-card scene-news">
+          <div class="card-head"><h3>Najnowsze wiadomości</h3><a href="#" id="scene-news-all">Wszystkie</a></div>
+          <div class="scene-news-wrap">
+            <button id="scene-prev" class="scene-arrow prev" aria-label="Poprzednie">‹</button>
+            <div id="scene-news-track" class="scene-news-track"></div>
+            <button id="scene-next" class="scene-arrow next" aria-label="Następne">›</button>
+          </div>
+        </section>
+        <section class="scene-card scene-play">
+          <div class="scene-play-head">
+            <h3 id="scene-server">MelinaSMP</h3>
+            <span id="scene-online" class="scene-pill"><span id="scene-dot" class="dot"></span><span id="scene-online-text">…</span></span>
+          </div>
+          <div class="scene-as"><span id="scene-head" class="scene-head"></span><span>Uruchamianie jako <b id="scene-nick">–</b></span></div>
+          <div id="scene-play-slot"></div>
         </section>
       </main>
 
@@ -272,16 +296,12 @@
     <div class="panel">
       <h2>Ustawienia</h2>
 
-      <h3>Pamięć RAM</h3>
+      <h3>Alokacja RAM</h3>
       <label class="field">
-        <span>Maksymalnie: <b id="ram-max-val"></b></span>
+        <span>Dla gry: <b id="ram-max-val"></b></span>
         <input type="range" id="ram-max" min="2" step="0.5">
       </label>
       <p class="hint" id="ram-hint"></p>
-      <label class="field">
-        <span>Minimalnie: <b id="ram-min-val"></b></span>
-        <input type="range" id="ram-min" min="1" step="0.5">
-      </label>
 
       <h3>Okno gry</h3>
       <div class="row">
@@ -306,12 +326,11 @@
       <select id="after-launch">
         <option value="minimize">Zminimalizuj launcher</option>
         <option value="keep">Zostaw launcher otwarty</option>
-        <option value="close">Zamknij launcher</option>
       </select>
 
       <h3>Discord</h3>
       <label class="setting-row">
-        <div><div class="setting-name">Discord Rich Presence</div><div class="desc">Pokazuje na Twoim profilu Discord, że jesteś w launcherze albo grasz na serwerze.</div></div>
+        <div><div class="setting-name">Discord Rich Presence</div><div class="desc">Pokazuj na Discordzie, że korzystasz z launchera.</div></div>
         <input type="checkbox" id="discord-rpc" class="switch">
       </label>
       <label class="setting-row">

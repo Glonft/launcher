@@ -33,7 +33,7 @@ function enabledAddons(manifest, choices = {}) {
  *  - dodatki opcjonalne: włączone pobiera, wyłączone usuwa,
  *  - duże pliki „seed” wgrywa, jeśli są już pobrane; zwraca listę tych do pobrania w tle.
  */
-async function syncModpack(manifest, gameDir, log, progress, addonChoices = {}) {
+async function syncModpack(manifest, gameDir, log, progress, addonChoices = {}, checkCancel = () => {}) {
   const enabled = enabledAddons(manifest, addonChoices);
   const enabledIds = new Set(enabled.map((g) => g.id));
   // pliki „seed” (np. teren Distant Horizons) obsługuje osobno seed.js
@@ -80,6 +80,7 @@ async function syncModpack(manifest, gameDir, log, progress, addonChoices = {}) 
 
   let i = 0;
   for (const f of toDownload) {
+    checkCancel(); // „Anuluj” – przerywamy przed kolejnym plikiem
     i++;
     log(`Pobieranie (${i}/${toDownload.length}): ${f.path}`);
     await download(f.url, f.dest, f.sha1, (d, t) =>

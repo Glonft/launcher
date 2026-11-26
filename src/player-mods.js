@@ -97,7 +97,7 @@ class PlayerMods {
     return {
       total: d.total_hits,
       hits: d.hits.filter((h) => !blocks.project(h.project_id)).map((h) => ({
-        id: h.project_id, title: h.title, description: h.description, icon: h.icon_url,
+        id: h.project_id, slug: h.slug, title: h.title, description: h.description, icon: h.icon_url,
         downloads: h.downloads, author: h.author, kind,
         needsServer: kind === 'mod' && h.server_side === 'required',
         serverOnly: kind === 'mod' && h.client_side === 'unsupported',
@@ -108,6 +108,8 @@ class PlayerMods {
   async addModrinth(projectId, mc, loader, kind = 'mod', requiredBy = null, depth = 0) {
     if (!KINDS[kind]) throw new Error('Nieznany rodzaj.');
     if (depth > 4) return [];
+    if (this.packIds && this.packIds.has(projectId) && !requiredBy) throw new Error('Ten mod jest już w paczce serwera – nie trzeba go dodawać.');
+    if (this.packIds && this.packIds.has(projectId)) return []; // zależność, którą paczka już ma
     const blocked = this.blocks.project(projectId);
     const list = this.list();
     const existing = list.find((m) => m.projectId === projectId);
@@ -334,4 +336,40 @@ function packModIds(gameDir, manifest) {
   return new Set(packModInfo(gameDir, manifest).map((m) => m.id).filter(Boolean));
 }
 
-module.exports = { PlayerMods, packModIds, packModInfo, PREFIX, IRIS, KINDS };
+/**
+ * Projekty Modrinth, które są już w paczce serwera (mody, shadery, paczki tekstur) – żeby nie dało się ich dodać drugi raz.
+ * Najpierw z adresu pliku (cdn.modrinth.com/data/<projekt>/…), resztę po SHA-1 jednym zapytaniem do Modrinth.
+ * Wynik zapamiętujemy dla danej wersji paczki.
+ */
+async function packProjects(gameDir, manifest) {
+  if (!manifest || !Array.isArray(manifest.files)) return [];
+  const cacheFile = path.join(gameDir, '.melinasmp-packprojects.json');
+  const key = `${manifest.version || ''}|${manifest.files.length}`;
+  try {
+    const c = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+    if (c.key === key && Array.isArray(c.ids)) return c.ids;
+  } catch { /* brak */ }
+  const files = manifest.files.filter((f) => /^(mods|shaderpacks|resourcepacks)\/[^/]+$/i.test(f.path || ''));
+  const ids = new Set();
+  const unknown = [];
+  for (const f of files) {
+    const m = String(f.url || '').match(/^https:\/\/cdn\.modrinth\.com\/data\/([A-Za-z0-9]{8})\//);
+    if (m) ids.add(m[1]);
+    else if (/^[0-9a-f]{40}$/i.test(f.sha1 || '')) unknown.push(f.sha1.toLowerCase());
+  }
+  let complete = true;
+  for (let i = 0; i < unknown.length; i += 200) {
+    try {
+      const r = await getJson(`${API}/version_files`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hashes: unknown.slice(i, i + 200), algorithm: 'sha1' }),
+      });
+      for (const v of Object.values(r || {})) if (v && v.project_id) ids.add(v.project_id);
+    } catch { complete = false; }
+  }
+  const out = [...ids];
+  if (complete) { try { fs.writeFileSync(cacheFile, JSON.stringify({ key, ids: out })); } catch { /* bez znaczenia */ } }
+  return out;
+}
+
+module.exports = { PlayerMods, packModIds, packModInfo, packProjects, PREFIX, IRIS, KINDS };
