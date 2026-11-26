@@ -8,6 +8,13 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.9.5
+- Obrazki w aktualnościach
+- Moje mody: przyciski Zainstaluj / Odinstaluj, a mody z paczki serwera oznaczone jako „W paczce”
+- Przycisk „Anuluj” podczas przygotowywania gry
+- Prostsze ustawienia: jeden suwak alokacji RAM
+- Poprawki wyglądu ekranu Start
+
 ## 0.9.4
 - Status na Discordzie: widać, że jesteś w launcherze albo grasz na serwerze (można wyłączyć w Ustawieniach)
 
