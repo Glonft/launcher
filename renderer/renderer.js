@@ -92,6 +92,7 @@ function applyAppearance(a) {
   if (l.news && l.news !== 'right') home.classList.add(`news-${l.news}`);
   if (l.modsFirst) home.classList.add('mods-first');
   if (l.modsHidden) home.classList.add('mods-hidden');
+  applyRail(l);
   // tło
   const bg = a && a.background;
   if (!bg) { currentBg = null; document.body.classList.remove('has-bg'); $('bg-layer').style.backgroundImage = ''; return; }
@@ -118,6 +119,30 @@ function newsImage(img, target) {
     if (target.tagName === 'IMG') target.src = url; else target.style.backgroundImage = `url("${url}")`;
   });
 }
+/** Pasek boczny: kolejność górnych ikon i ukryte ikony (z panelu). Start i Ustawienia są zawsze. */
+const RAIL_IDS = { mymods: 'btn-mymods', addons: 'btn-addons', news: 'nav-news', players: 'btn-players', discord: 'btn-discord' };
+function applyRail(l) {
+  const order = Array.isArray(l.railOrder) && l.railOrder.length ? l.railOrder : ['mymods', 'addons', 'news', 'players'];
+  const hidden = new Set(Array.isArray(l.railHidden) ? l.railHidden : []);
+  const space = document.querySelector('.rail-space');
+  for (const k of order) if (RAIL_IDS[k] && k !== 'discord') space.before($(RAIL_IDS[k]));
+  for (const [k, id] of Object.entries(RAIL_IDS)) $(id).classList.toggle('rail-off', hidden.has(k));
+}
+
+/** Strzałki aktualności tylko wtedy, gdy jest co przewijać (inaczej karty zajmują całą szerokość). */
+function updateSceneArrows() {
+  const wrap = $('scene-news-wrap');
+  const t = $('scene-news-track');
+  wrap.classList.remove('no-scroll');
+  const scroll = t.scrollWidth > t.clientWidth + 2;
+  wrap.classList.toggle('no-scroll', !scroll);
+  if (!scroll) return;
+  $('scene-prev').disabled = t.scrollLeft <= 2;
+  $('scene-next').disabled = t.scrollLeft + t.clientWidth >= t.scrollWidth - 2;
+}
+new ResizeObserver(() => updateSceneArrows()).observe($('scene-news-wrap'));
+$('scene-news-track').addEventListener('scroll', () => updateSceneArrows(), { passive: true });
+
 function renderSceneNews(news) {
   const track = $('scene-news-track');
   track.replaceChildren(...news.slice(0, 10).map((n) => {
@@ -132,6 +157,7 @@ function renderSceneNews(news) {
     return card;
   }));
   if (!news.length) track.append(el('p', { className: 'muted', textContent: 'Brak aktualności.' }));
+  requestAnimationFrame(updateSceneArrows);
 }
 function openNewsItem(n) {
   showView('news');

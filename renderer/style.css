@@ -93,6 +93,7 @@ select { width: 100%; }
   display: flex; align-items: center; justify-content: center;
 }
 a.rail-btn { text-decoration: none; }
+.rail-btn.rail-off { display: none; }
 .rail-btn.discord:hover { color: #8b9bff; } /* kolor Discorda – niezależny od motywu */
 .rail-btn.active { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); box-shadow: 0 0 14px var(--accent-glow); }
 .rail-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent-strong); color: var(--on-accent); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
@@ -444,6 +445,12 @@ input, textarea, #log, .cmd-box code { user-select: text; }
 .scene-more { align-self: flex-start; margin-top: 6px; padding: 5px 12px; font-size: 12px; border-radius: 10px; background: rgba(0, 0, 0, .45); color: #fff; }
 .scene-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 34px; height: 34px; padding: 0; border-radius: 50%; font-size: 22px; line-height: 1;
   background: var(--accent-strong); color: var(--on-accent); box-shadow: 0 4px 14px rgba(0, 0, 0, .4); }
+.scene-arrow { display: flex; align-items: center; justify-content: center; }
+.scene-arrow svg { display: block; }
+.scene-arrow:disabled { opacity: .35; cursor: default; }
+.scene-news-wrap.no-scroll { padding: 0; }
+.scene-news-wrap.no-scroll .scene-arrow { display: none; }
+.scene-news-wrap.no-scroll .scene-news-card { flex: 1 1 0; min-width: 0; }
 .scene-arrow.prev { left: 0; }
 .scene-arrow.next { right: 0; }
 .scene-play { grid-column: 2; grid-row: 3; align-self: end; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; }

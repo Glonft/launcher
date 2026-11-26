@@ -208,8 +208,19 @@ function appearanceFrom(manifest) {
     news: ['right', 'left', 'below', 'hidden'].includes(l.news) ? l.news : 'right',
     modsFirst: !!l.modsFirst,
     modsHidden: !!l.modsHidden,
+    ...railFrom(l),
   };
   return { colors, background, layout, icon: img(a.icon) };
+}
+
+/** Pasek boczny z panelu: kolejność górnych ikon i ikony ukryte (Start i Ustawienia zostają zawsze). */
+const RAIL_TOP = ['mymods', 'addons', 'news', 'players'];
+const RAIL_ALL = [...RAIL_TOP, 'discord'];
+function railFrom(l) {
+  const order = (Array.isArray(l.railOrder) ? l.railOrder : []).filter((k, i, arr) => RAIL_TOP.includes(k) && arr.indexOf(k) === i);
+  for (const k of RAIL_TOP) if (!order.includes(k)) order.push(k);
+  const hidden = (Array.isArray(l.railHidden) ? l.railHidden : []).filter((k, i, arr) => RAIL_ALL.includes(k) && arr.indexOf(k) === i);
+  return { railOrder: order, railHidden: hidden };
 }
 
 /** Obrazek z panelu (ikona, obrazek newsa): pobierany raz do folderu launchera i sprawdzany sumą. Zwraca ścieżkę pliku. */
