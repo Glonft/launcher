@@ -8,6 +8,13 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.9.9 – 27.11.2026
+- Ikona i nazwa launchera w lewym górnym rogu
+- Okno logowania na tle serwera, z przyciskami okna i zmianą języka
+- Lżejsze przyciski okna w prawym górnym rogu
+- Strona skina nie przeskakuje przy wejściu
+- Ustawienia bez sekcji Konta – konto zmienia się przez „Wyloguj”
+
 ## 0.9.8 – 27.11.2026
 - Nowy pasek boczny: strony zamiast okienek, dymki z nazwami i animacje przejść
 - Nowy dolny pasek na ekranie Start z przyciskiem „Uruchom grę”, graczami, pingiem, pamięcią i statusem serwera

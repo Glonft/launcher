@@ -41,12 +41,15 @@ body {
 
 /* ---------- bez paska tytułu: okno przeciąga się za górną krawędź, przyciski w prawym górnym rogu ---------- */
 .drag-strip { position: fixed; top: 0; left: 0; right: 0; height: 30px; -webkit-app-region: drag; z-index: 30; }
-.win-ctrl { position: fixed; top: 10px; right: 12px; z-index: 40; display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 14px;
-  background: var(--card-glass); border: 1px solid var(--border-strong); backdrop-filter: blur(10px); -webkit-app-region: no-drag; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); }
+.win-ctrl { position: fixed; top: 8px; right: 12px; z-index: 60; display: flex; align-items: center; gap: 2px; -webkit-app-region: no-drag; }
+.brand { position: fixed; top: 10px; left: 18px; z-index: 60; display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 14px; letter-spacing: .01em; pointer-events: none; text-shadow: 0 1px 6px rgba(0, 0, 0, .5); }
+.brand img { width: 28px; height: 28px; border-radius: 8px; image-rendering: auto; }
+.app { padding-top: 40px; }
+.drag-strip { height: 48px; }
 .tb-btn { width: 34px; height: 30px; padding: 0; border-radius: 9px; background: transparent; color: var(--muted-2); display: flex; align-items: center; justify-content: center; }
 .tb-btn:hover:not(:disabled) { background: rgba(255, 255, 255, .08); color: var(--text); filter: none; }
 .tb-btn.close:hover:not(:disabled) { background: #c4314b; color: #fff; }
-.tb-btn.lang { width: auto; padding: 0 10px; font-size: 12px; font-weight: 800; letter-spacing: .04em; color: var(--text); background: var(--btn); }
+.tb-btn.lang { width: auto; padding: 0 10px; font-size: 12px; font-weight: 800; letter-spacing: .04em; color: var(--text); }
 .win-sep { width: 1px; height: 18px; background: var(--border-strong); margin: 0 3px; }
 .hidden { display: none !important; }
 .muted { color: var(--muted); }
@@ -116,7 +119,7 @@ a.rail-btn { text-decoration: none; }
 
 .content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
-.notices { padding: 12px 190px 0 24px; min-height: 56px; display: flex; flex-direction: column; gap: 8px; }
+.notices { padding: 0 24px;  display: flex; flex-direction: column; gap: 8px; }
 .notices:empty { display: none; }
 .notice {
   display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; font-size: 14px;
@@ -516,7 +519,10 @@ input, textarea, #log, .cmd-box code { user-select: text; }
 .acc-row .acc-active { flex: none !important; font-size: 12px; color: var(--ok); }
 
 /* ---------- okno logowania ---------- */
-.overlay.login { background: radial-gradient(circle at 50% 30%, var(--accent-tint), transparent 60%), var(--overlay); z-index: 45; backdrop-filter: blur(6px); }
+.overlay.login { background: rgba(0, 0, 0, .25); z-index: 45; }
+body.login-only .app { visibility: hidden; }
+body.login-only:not(.has-bg) .overlay.login { background: radial-gradient(circle at 50% 30%, var(--accent-tint), transparent 60%); }
+body:not(.login-only) .overlay.login { background: var(--overlay); backdrop-filter: blur(6px); }
 .overlay.login.required .panel-x { display: none; }
 .login-panel { width: 400px; padding: 26px 28px 20px; }
 .login-panel h2 { margin: 6px 0 4px; font-size: 20px; }
@@ -593,3 +599,5 @@ button.loading::after { content: ''; position: absolute; left: 50%; top: 50%; wi
 @media (max-width: 860px) { .pb-stat { min-width: 48px; padding: 2px 4px; } .play-bar .play { min-width: 170px; padding: 0 16px; } }
 .log-wrap { bottom: 92px; }
 .play.cancel svg { display: none; }
+
+#skin-status { min-height: 18px; }

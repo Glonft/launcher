@@ -85,7 +85,10 @@ document.addEventListener('contextmenu', (e) => { if (!(e.target.closest && e.ta
 // ---------- wygląd od serwera (kolory, tło, układ) ----------
 let currentBg = null;
 function applyAppearance(a) {
-  if (a && a.appName) document.title = a.appName;
+  const name = (a && a.appName) || 'MelinaSMP Launcher';
+  document.title = name;
+  $('brand-name').textContent = name;
+  if (a && a.icon) L.image(a.icon).then((u) => { if (u) $('brand-icon').src = u; }).catch(() => {}); else $('brand-icon').src = 'app-icon.png';
   const T = window.MelinaTheme;
   // kolory
   if (a && a.colors && T) T.apply(a.colors);
@@ -261,23 +264,12 @@ function renderAccounts(state) {
   if (!a) { openAddAccount(true); return; }
   closeAddAccount();
   $('rail-head').style.backgroundImage = `url("${headUrl(a.name)}")`;
-
-  // lista w ustawieniach
-  const box = $('accounts-list');
-  box.replaceChildren();
-  for (const acc of state.list) {
-    const rm = el('button', { className: 'rm', textContent: 'Usuń', title: 'Usuń konto z launchera' });
-    rm.onclick = async () => renderAccounts(await L.removeAccount(acc.id));
-    const use = acc.id === a.id ? el('span', { className: 'acc-active', textContent: 'aktywne' })
-      : el('button', { className: 'ghost-sm', textContent: 'Użyj', onclick: async () => renderAccounts(await L.selectAccount(acc.id)) });
-    box.append(el('div', { className: 'acc-row' },
-      el('span', { textContent: `${acc.name} – ${acc.type === 'microsoft' ? 'Microsoft' : 'non-premium'}` }), use, rm));
-  }
 }
 
 /** Okno logowania: wymagane, gdy nikt nie jest zalogowany (po „Wyloguj” albo przy pierwszym uruchomieniu). */
 function openAddAccount(required = false) {
   const ov = $('add-account');
+  document.body.classList.toggle('login-only', required);
   if (!ov.classList.contains('hidden') && ov.classList.contains('required') === required) return;
   for (const id of ['login-error', 'forgot-error', 'reg-error']) $(id).textContent = '';
   $('login-pass').value = '';
@@ -365,8 +357,7 @@ $('lv-register').onsubmit = (e) => {
     } catch (x) { err.textContent = cleanErr(x); }
   });
 };
-$('btn-add-account').onclick = () => openAddAccount(false);
-const closeAddAccount = () => { $('add-account').classList.add('hidden'); $('add-account').classList.remove('required'); };
+const closeAddAccount = () => { $('add-account').classList.add('hidden'); $('add-account').classList.remove('required'); document.body.classList.remove('login-only'); };
 $('btn-logout').onclick = async () => {
   if (appState !== 'idle') return;
   renderAccounts(await L.logout());
@@ -457,6 +448,16 @@ function ensurePreview() {
 let skinSeq = 0;
 async function openSkin() {
   if (skinData && (pickedSkin !== null || pickedCape !== undefined)) return; // wrócono na stronę z niezapisanymi zmianami
+  ensurePreview();
+  // ten sam gracz co ostatnio: zostawiamy to, co widać, i tylko po cichu sprawdzamy zmiany (nic nie przeskakuje)
+  if (skinData && accountsState.active && skinData.name === accountsState.active.name) {
+    const seq = ++skinSeq;
+    L.getSkin().then((fresh) => {
+      if (seq !== skinSeq || page !== 'skin' || pickedSkin !== null || pickedCape !== undefined) return;
+      if (JSON.stringify(fresh) !== JSON.stringify(skinData)) applySkinData(fresh);
+    }).catch(() => {});
+    return;
+  }
   const seq = ++skinSeq;
   pickedSkin = null;
   pickedCape = undefined;
@@ -467,7 +468,6 @@ async function openSkin() {
   $('btn-skin-save').disabled = true;
   $('capes').replaceChildren();
   $('skin-name').textContent = accountsState.active ? accountsState.active.name : '';
-  ensurePreview();
   try {
     // 1) od razu ostatnio znany wygląd (konta premium), 2) świeży z serwerów Mojang w tle
     const cached = await L.getSkin({ cached: true }).catch(() => null);
@@ -763,7 +763,6 @@ async function openSettings() {
   $('discord-rpc').checked = s.discordRpc !== false;
   $('discord-rpc-button').checked = !!s.discordRpcButton;
   $('discord-rpc-button').disabled = !$('discord-rpc').checked;
-  renderAccounts(await L.getAccounts());
   $('settings-error').textContent = '';
   hideDirChange();
   settingsSnapshot = JSON.stringify(collectSettings());
@@ -889,7 +888,11 @@ async function init() {
   refreshRam();
   // podgląd 3D skina przygotowujemy w wolnej chwili, żeby pierwsze otwarcie okna było szybkie
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
-  idle(() => { try { ensurePreview(); } catch { /* spróbujemy przy otwarciu okna */ } });
+  idle(() => {
+    try { ensurePreview(); } catch { /* spróbujemy przy otwarciu okna */ }
+    // dane skina też wcześniej – pierwsze wejście w Skin od razu pokazuje gotową stronę
+    if (accountsState.active && !skinData) L.getSkin({ cached: true }).then((d) => { if (d && !skinData && page !== 'skin') applySkinData(d); }).catch(() => {});
+  });
 }
 init();
 
