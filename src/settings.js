@@ -52,6 +52,7 @@ class SettingsStore {
     s.discordRpc = s.discordRpc !== false;
     s.discordRpcButton = !!s.discordRpcButton;
     s.uiAnim = s.uiAnim !== false;
+    s.lang = s.lang === 'en' ? 'en' : 'pl';
 
     const addons = {};
     for (const [k, v] of Object.entries(s.addons || {})) {

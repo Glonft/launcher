@@ -59,9 +59,9 @@ jobs:
           if [ -z "$MINESKIN_KEY" ]; then echo "::error::Brak sekretu MINESKIN_KEY (Settings → Secrets and variables → Actions)"; exit 1; fi
           node -e "require('fs').writeFileSync('secrets.json', JSON.stringify({ mineskinKey: process.env.MINESKIN_KEY }))"
       - run: npm install
-      - name: Ikona launchera z panelu (Wygląd launchera → Ikona)
+      - name: Nazwa i ikona launchera z panelu (Wygląd launchera)
         shell: bash
-        run: node scripts/fetch-icon.js || echo "::warning::Nie udało się pobrać ikony z panelu – zostaje domyślna."
+        run: node scripts/fetch-branding.js || echo "::warning::Nie udało się pobrać nazwy/ikony z panelu – zostają domyślne."
       - name: Sprawdź podgląd 3D skina
         shell: bash
         run: test -s renderer/vendor/skinview3d.js && grep -q SkinViewer renderer/vendor/skinview3d.js

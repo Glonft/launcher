@@ -59,7 +59,7 @@ function showInfo(info) {
       : '';
     if (info.requiredLauncher) L.getUpdate().then(showUpdate).catch(() => {});
   }
-  if (info.server && info.server.name) { $('scene-server').textContent = info.server.name; }
+  if (info.server && info.server.name) { $('scene-server').textContent = info.server.name; $('login-server').textContent = info.server.name; }
   if (!Array.isArray(info.news)) return;
   renderSceneNews(info.news);
   for (const id of ['news-list', 'news-full']) {
@@ -84,6 +84,7 @@ document.addEventListener('contextmenu', (e) => { if (!(e.target.closest && e.ta
 // ---------- wygląd od serwera (kolory, tło, układ) ----------
 let currentBg = null;
 function applyAppearance(a) {
+  if (a && a.appName) document.title = a.appName;
   const T = window.MelinaTheme;
   // kolory
   if (a && a.colors && T) T.apply(a.colors);
@@ -206,6 +207,11 @@ function setHomeStyle(style, a) {
 }
 
 // ---------- przyciski okna (prawy górny róg) ----------
+$('btn-lang').onclick = async () => {
+  const next = I18N.get() === 'pl' ? 'en' : 'pl';
+  I18N.set(next);
+  try { await L.saveSettings({ lang: next }); } catch { /* zostanie do zamknięcia */ }
+};
 $('tb-min').onclick = () => L.winMinimize();
 $('tb-max').onclick = () => L.winToggleMax();
 $('tb-close').onclick = () => L.winClose();
@@ -815,6 +821,7 @@ async function init() {
   const a = await L.getApp();
   document.title = a.appName;
   launcherChangelog = a.changelog || null;
+  I18N.set(a.lang);
   animOn = a.uiAnim !== false;
   $('version-info').dataset.version = a.version;
   if (a.portable) $('version-info').dataset.portable = '1';

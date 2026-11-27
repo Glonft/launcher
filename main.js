@@ -1,4 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, screen, Menu, nativeImage } = require('electron');
+const pathMod = require('path');
+// Dane launchera (konta, ustawienia, cache) zawsze w tym samym folderze – także gdy nazwa launchera
+// zmieni się z panelu i nowa wersja zostanie zbudowana pod inną nazwą.
+app.setPath('userData', pathMod.join(app.getPath('appData'), 'MelinaSMP Launcher'));
 const { modIcon } = require('./src/jar');
 const { queryFull } = require('./src/query');
 const { DiscordPresence } = require('./src/discord-rpc');
@@ -223,7 +227,8 @@ function appearanceFrom(manifest) {
     modsHidden: !!l.modsHidden,
     ...railFrom(l),
   };
-  return { colors, background, layout, icon: img(a.icon) };
+  const name = typeof a.appName === 'string' ? a.appName.replace(/[^\p{L}\p{N} ._'!-]/gu, '').trim().slice(0, 40) : '';
+  return { colors, background, layout, icon: img(a.icon), appName: name || null };
 }
 
 /** Pasek boczny z panelu: kolejność górnych ikon i ikony ukryte (Start i Ustawienia zostają zawsze). */
@@ -265,6 +270,7 @@ async function imageDataUrl(img) {
 async function applyWindowIcon(manifest) {
   if (!win || win.isDestroyed()) return;
   const a = appearanceFrom(manifest);
+  win.setTitle((a && a.appName) || `${config.appName} Launcher`);
   try {
     if (a && a.icon) {
       const file = await cachedImage(a.icon);
@@ -643,6 +649,7 @@ app.whenReady().then(() => {
     discordRpc: true, // status na Discordzie – domyślnie włączony
     discordRpcButton: false, // przycisk z zaproszeniem pod statusem – domyślnie wyłączony
     uiAnim: true, // animacje przejść między stronami
+    lang: 'pl', // język launchera (przycisk PL/EN w rogu)
   });
 
   const changelog = () => readChangelog(path.join(__dirname, 'CHANGELOG.md'));
@@ -657,7 +664,7 @@ app.whenReady().then(() => {
       whatsNew = changelog().filter((e) => e.version === cur); // aktualizacja ze starszej wersji
     }
     if (seen !== cur) { try { settings.set({ lastSeenVersion: cur }); } catch { /* ignoruj */ } }
-    return { appName: config.appName, version: cur, portable: isPortable(), info: publicInfo(cachedManifest()), whatsNew, changelog: changelog(), uiAnim: settings.get().uiAnim !== false };
+    return { appName: config.appName, version: cur, portable: isPortable(), info: publicInfo(cachedManifest()), whatsNew, changelog: changelog(), uiAnim: settings.get().uiAnim !== false, lang: settings.get().lang === 'en' ? 'en' : 'pl' };
   });
   ipcMain.handle('changelog:get', () => changelog());
   ipcMain.handle('info:refresh', async () => {

@@ -11,6 +11,8 @@ const { download } = require('./download');
  * oryginalnego pliku w PORTABLE_EXECUTABLE_FILE.
  */
 const ASSET = 'MelinaSMP-Launcher-Portable.exe';
+// nazwa pliku może się zmienić razem z nazwą launchera (panel) – szukamy po końcówce
+const isPortableAsset = (name) => name === ASSET || /-Portable\.exe$/i.test(name || '');
 
 function isPortable() {
   return process.platform === 'win32' && !!process.env.PORTABLE_EXECUTABLE_FILE;
@@ -83,7 +85,7 @@ class PortableUpdater {
       const version = String(rel.tag_name || '').replace(/^v/, '');
       if (!newer(version, currentVersion)) return onState({ state: 'latest' });
 
-      const asset = (rel.assets || []).find((a) => a.name === ASSET);
+      const asset = (rel.assets || []).find((a) => a.name === ASSET) || (rel.assets || []).find((a) => isPortableAsset(a.name));
       if (!asset) throw new Error('W wydaniu brak pliku wersji portable.');
       const sha256 = /^sha256:([0-9a-f]{64})$/i.exec(asset.digest || '');
 
