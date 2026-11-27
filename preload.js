@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('launcher', {
   selectAccount: (id) => invoke('accounts:select', id),
   removeAccount: (id) => invoke('accounts:remove', id),
   logout: () => invoke('accounts:logout'),
+  loginServer: (nick, password, remember) => invoke('accounts:loginServer', nick, password, remember),
+  registerServer: (nick, email, password, remember) => invoke('accounts:registerServer', nick, email, password, remember),
+  forgotPassword: (who) => invoke('accounts:forgot', who),
 
   getSkin: (opts) => invoke('skin:get', opts),
   pickSkin: () => invoke('skin:pick'),
@@ -60,7 +63,7 @@ contextBridge.exposeInMainWorld('launcher', {
   showUpdateFile: () => invoke('update:showFile'),
 
   on: (channel, cb) => {
-    if (['log', 'progress', 'state', 'error', 'info', 'update', 'seed', 'zoom', 'winstate'].includes(channel)) {
+    if (['log', 'progress', 'state', 'error', 'info', 'update', 'seed', 'zoom', 'winstate', 'accounts'].includes(channel)) {
       ipcRenderer.on(channel, (_e, data) => cb(data));
     }
   },

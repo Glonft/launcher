@@ -454,6 +454,14 @@ async function play(opts = {}) {
     checkCancel();
     progress('Logowanie...', 0);
     const authorization = await accounts.getLaunchAuth();
+    // bilet na serwerze logowania (nick + IP) – dzięki niemu serwer gry wie, że to naprawdę Ty
+    try {
+      const t = await accounts.gameTicket();
+      if (t) log(`Potwierdzono konto na serwerze logowania: ${t.nick}`);
+    } catch (e) {
+      if (/zaloguj się ponownie/i.test(e.message)) { send('accounts', accounts.state()); throw e; }
+      log(`Uwaga: nie udało się potwierdzić konta na serwerze logowania (${e.message}). Jeśli serwer wymaga logowania, może Cię nie wpuścić.`);
+    }
 
     const launcher = new Client();
     launcher.on('progress', (p) => progress(`Pobieranie: ${p.type}`, p.total ? p.task / p.total : 0));
@@ -635,7 +643,7 @@ function initUpdater() {
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   const userData = app.getPath('userData');
-  accounts = new AccountStore(path.join(userData, 'accounts.json'), config.microsoftClientId);
+  accounts = new AccountStore(path.join(userData, 'accounts.json'), config.microsoftClientId, config.authUrl);
   settings = new SettingsStore(path.join(userData, 'settings.json'), {
     gameDir: path.join(app.getPath('appData'), config.gameDirName),
     maxRamGB: Math.min(gb(config.memory.max) || 6, SettingsStore.systemInfo().maxAllowedRamGB),
@@ -700,6 +708,9 @@ app.whenReady().then(() => {
   ipcMain.handle('accounts:select', (_e, id) => { const r = accounts.select(id); setTimeout(() => prefetchSkin(), 500); return r; });
   ipcMain.handle('accounts:remove', (_e, id) => accounts.remove(id));
   ipcMain.handle('accounts:logout', () => accounts.logout());
+  ipcMain.handle('accounts:loginServer', (_e, nick, password, remember) => accounts.loginServer(nick, password, remember));
+  ipcMain.handle('accounts:registerServer', (_e, nick, email, password, remember) => accounts.registerServer(nick, email, password, remember));
+  ipcMain.handle('accounts:forgot', (_e, who) => accounts.forgotPassword(who));
 
   // ---- skin i peleryna ----
   // Premium: oficjalne API Minecrafta. Non-premium: MineSkin + komenda SkinRestorera do schowka.

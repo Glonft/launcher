@@ -367,24 +367,53 @@
     </div>
   </div>
 
-  <!-- Logowanie (przed wejściem do launchera) / dodawanie konta -->
+  <!-- Logowanie (przed wejściem do launchera): Logowanie / Reset hasła / Rejestracja -->
   <div id="add-account" class="overlay login hidden">
     <div class="panel narrow login-panel">
-      <img class="login-logo" src="app-icon.png" alt="">
-      <h2>Logowanie do <span id="login-server">MelinaSMP</span></h2>
-      <p class="hint">Zaloguj się do launchera korzystając z jednego z dostępnych sposobów</p>
-      <div id="login-accounts-wrap" class="login-accounts-wrap hidden">
-        <div class="login-label">Zapisane konta</div>
-        <div id="login-accounts" class="login-accounts"></div>
-        <div class="divider"><span>lub nowe konto</span></div>
-      </div>
-      <div class="row">
-        <input id="nick" placeholder="Podaj nick (non-premium)" maxlength="16">
-        <button id="btn-offline">Graj</button>
-      </div>
-      <div class="divider"><span>lub</span></div>
-      <button id="btn-ms" class="primary">Zaloguj się przez Microsoft (premium)</button>
-      <p id="login-error" class="error"></p>
+      <!-- Logowanie -->
+      <form id="lv-login" class="lv" novalidate>
+        <img class="login-logo" src="app-icon.png" alt="">
+        <h2>Logowanie do <span id="login-server">MelinaSMP</span></h2>
+        <p class="hint">Zaloguj się do launchera korzystając z jednego z dostępnych sposobów</p>
+        <div id="login-accounts-wrap" class="login-accounts-wrap hidden">
+          <div class="login-label">Zapisane konta</div>
+          <div id="login-accounts" class="login-accounts"></div>
+        </div>
+        <input id="nick" placeholder="Podaj nick" maxlength="16" autocomplete="username">
+        <div class="pw"><input id="login-pass" type="password" placeholder="Podaj hasło" autocomplete="current-password" maxlength="200"><button type="button" class="eye" tabindex="-1" aria-label="Pokaż hasło" title="Pokaż hasło"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path class="eye-open" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="eye-open" cx="12" cy="12" r="3"/><path class="eye-off" d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
+        <label class="check remember"><input type="checkbox" id="login-remember" checked> Zapamiętaj mnie</label>
+        <p id="login-error" class="error"></p>
+        <button id="btn-login" class="primary" type="submit">Zaloguj się</button>
+        <a href="#" id="go-forgot" class="small login-link">Zapomniałem hasła</a>
+        <div class="divider"><span>lub</span></div>
+        <button id="btn-ms" class="ms-btn" type="button"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24"><path fill="#f25022" d="M2 2h9.5v9.5H2z"/><path fill="#7fba00" d="M12.5 2H22v9.5h-9.5z"/><path fill="#00a4ef" d="M2 12.5h9.5V22H2z"/><path fill="#ffb900" d="M12.5 12.5H22V22h-9.5z"/></svg>Zaloguj się przez Microsoft</button>
+        <p class="login-foot">Nie masz konta? <a href="#" id="go-register">Zarejestruj się</a></p>
+      </form>
+      <!-- Reset hasła -->
+      <form id="lv-forgot" class="lv hidden" novalidate>
+        <button type="button" class="login-back" id="forgot-back" aria-label="Wróć do logowania">←</button>
+        <div class="login-key"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M14.5 2a7.5 7.5 0 0 0-7.1 9.9L2.3 17a1 1 0 0 0-.3.7V21a1 1 0 0 0 1 1h3.3a1 1 0 0 0 1-1v-1.3h1.3a1 1 0 0 0 1-1v-1.3h1.3a1 1 0 0 0 .7-.3l1.1-1.1A7.5 7.5 0 1 0 14.5 2zm2 6.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg></div>
+        <h2>Zapomniałem hasła</h2>
+        <p class="hint">Podaj swój nick z gry lub e-mail przypisany do konta, a wyślemy ci link do zresetowania hasła.</p>
+        <input id="forgot-who" placeholder="Nick lub e-mail..." maxlength="200">
+        <p id="forgot-error" class="error"></p>
+        <p id="forgot-ok" class="ok-text hidden"></p>
+        <button id="btn-forgot" class="primary" type="submit">Wyślij link</button>
+        <p class="login-foot"><a href="#" id="forgot-back2">Wróć do logowania</a></p>
+      </form>
+      <!-- Rejestracja -->
+      <form id="lv-register" class="lv hidden" novalidate>
+        <button type="button" class="login-back" id="register-back" aria-label="Wróć do logowania">←</button>
+        <h2>Rejestracja</h2>
+        <p class="hint">Konto dla graczy bez Minecrafta premium.</p>
+        <input id="reg-nick" placeholder="Podaj nick..." maxlength="16" autocomplete="username">
+        <input id="reg-email" type="email" placeholder="Podaj email..." maxlength="200" autocomplete="email">
+        <div class="pw"><input id="reg-pass" type="password" placeholder="Podaj hasło..." autocomplete="new-password" maxlength="200"><button type="button" class="eye" tabindex="-1" aria-label="Pokaż hasło" title="Pokaż hasło"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path class="eye-open" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="eye-open" cx="12" cy="12" r="3"/><path class="eye-off" d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
+        <div class="pw"><input id="reg-pass2" type="password" placeholder="Powtórz hasło..." autocomplete="new-password" maxlength="200"><button type="button" class="eye" tabindex="-1" aria-label="Pokaż hasło" title="Pokaż hasło"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path class="eye-open" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="eye-open" cx="12" cy="12" r="3"/><path class="eye-off" d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
+        <p id="reg-error" class="error"></p>
+        <button id="btn-register" class="primary" type="submit">Zarejestruj się</button>
+        <p class="login-foot">Masz już konto? <a href="#" id="go-login">Zaloguj się</a></p>
+      </form>
     </div>
   </div>
 

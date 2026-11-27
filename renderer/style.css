@@ -530,3 +530,33 @@ input, textarea, #log, .cmd-box code { user-select: text; }
 .login-acc small { display: block; font-size: 11.5px; color: var(--muted); }
 .login-acc-head { width: 32px; height: 32px; border-radius: 8px; background: var(--chip) center/cover no-repeat; image-rendering: pixelated; flex: none; }
 .login-panel .row { flex-wrap: nowrap; }
+
+/* okno logowania: widoki, pole hasła z okiem, ładowanie */
+.login-panel { position: relative; overflow: hidden; }
+.lv { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.lv > .login-logo, .lv > .login-key { align-self: center; }
+.lv h2 { margin: 4px 0 0; }
+.lv > .hint { margin: 0 0 6px; }
+.lv input:not([type=checkbox]) { width: 100%; padding: 11px 14px; }
+.lv-in { animation: lv-in .22s cubic-bezier(.4, 0, .2, 1); }
+@keyframes lv-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.pw { position: relative; }
+.pw input { padding-right: 44px !important; }
+.pw .eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; padding: 0; border-radius: 9px; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+.pw .eye:hover { color: var(--text); filter: none; background: rgba(255, 255, 255, .06); }
+.pw .eye .eye-off { display: none; }
+.pw .eye.on .eye-off { display: inline; }
+.pw .eye.on .eye-open { display: none; }
+.remember { align-self: flex-start; font-size: 13px; color: var(--muted-2); }
+.login-link { align-self: center; color: var(--muted-2); font-weight: 600; }
+.login-link:hover { color: var(--accent); }
+.login-foot { margin: 6px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
+.login-back { position: absolute; left: 16px; top: 16px; width: 34px; height: 34px; padding: 0; border-radius: 10px; background: var(--btn); color: var(--muted-2); font-size: 16px; }
+.login-key { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); }
+.ms-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; font-weight: 700; background: var(--btn); border: 1px solid var(--border-strong); }
+.ok-text { color: var(--ok); font-size: 13px; margin: 0; }
+.lv .error:empty { display: none; }
+button.loading { position: relative; color: transparent !important; }
+button.loading::after { content: ''; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2.5px solid var(--on-accent); border-right-color: transparent; animation: spin .7s linear infinite; }
+.ms-btn.loading::after { border-color: var(--text); border-right-color: transparent; }
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -289,18 +289,103 @@ function renderAccounts(state) {
 function openAddAccount(required = false) {
   const ov = $('add-account');
   if (!ov.classList.contains('hidden') && ov.classList.contains('required') === required) return;
-  $('login-error').textContent = '';
-  $('nick').value = '';
+  for (const id of ['login-error', 'forgot-error', 'reg-error']) $(id).textContent = '';
+  $('login-pass').value = '';
   ov.classList.toggle('required', required);
   ov.classList.remove('hidden');
-  if (required) setTimeout(() => $('nick').focus(), 50);
+  loginView('login', true);
 }
+/** Przełączanie widoków okna logowania (z krótkim przejściem). */
+function loginView(v, instant = false) {
+  const ids = { login: 'lv-login', forgot: 'lv-forgot', register: 'lv-register' };
+  for (const [k, id] of Object.entries(ids)) {
+    const f = $(id);
+    const on = k === v;
+    f.classList.toggle('hidden', !on);
+    if (on && !instant) { f.classList.remove('lv-in'); void f.offsetWidth; f.classList.add('lv-in'); }
+  }
+  const focus = { login: $('nick').value ? 'login-pass' : 'nick', forgot: 'forgot-who', register: 'reg-nick' }[v];
+  setTimeout(() => $(focus).focus(), 30);
+}
+$('go-forgot').onclick = (e) => { e.preventDefault(); $('forgot-who').value = $('nick').value; $('forgot-ok').classList.add('hidden'); $('forgot-error').textContent = ''; loginView('forgot'); };
+$('go-register').onclick = (e) => { e.preventDefault(); $('reg-error').textContent = ''; loginView('register'); };
+for (const id of ['go-login', 'forgot-back', 'forgot-back2', 'register-back']) $(id).onclick = (e) => { e.preventDefault(); $('login-error').textContent = ''; loginView('login'); };
+// oko w polach hasła
+for (const b of document.querySelectorAll('.pw .eye')) {
+  b.onclick = () => {
+    const inp = b.previousElementSibling;
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    b.classList.toggle('on', show);
+    b.title = show ? 'Ukryj hasło' : 'Pokaż hasło';
+    b.setAttribute('aria-label', b.title);
+    inp.focus();
+  };
+}
+/** Przycisk w trakcie zapytania: zablokowany i z kręciołkiem. */
+async function busy(btn, fn) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.classList.add('loading');
+  try { await fn(); } finally { btn.disabled = false; btn.classList.remove('loading'); }
+}
+$('lv-login').onsubmit = (e) => {
+  e.preventDefault();
+  const err = $('login-error');
+  err.textContent = '';
+  const nick = $('nick').value.trim();
+  const pass = $('login-pass').value;
+  if (!nick || !pass) { err.textContent = 'Uzupełnij wszystkie pola'; return; }
+  busy($('btn-login'), async () => {
+    try { renderAccounts(await L.loginServer(nick, pass, $('login-remember').checked)); $('login-pass').value = ''; } catch (x) { err.textContent = cleanErr(x); }
+  });
+};
+$('lv-forgot').onsubmit = (e) => {
+  e.preventDefault();
+  const err = $('forgot-error');
+  err.textContent = '';
+  $('forgot-ok').classList.add('hidden');
+  const who = $('forgot-who').value.trim();
+  if (!who) { err.textContent = 'Uzupełnij wszystkie pola'; return; }
+  busy($('btn-forgot'), async () => {
+    try {
+      const r = await L.forgotPassword(who);
+      $('forgot-ok').textContent = (r && r.message) || 'Jeśli konto istnieje, wysłaliśmy link na podany adres';
+      $('forgot-ok').classList.remove('hidden');
+    } catch (x) { err.textContent = cleanErr(x); }
+  });
+};
+$('lv-register').onsubmit = (e) => {
+  e.preventDefault();
+  const err = $('reg-error');
+  err.textContent = '';
+  const nick = $('reg-nick').value.trim();
+  const email = $('reg-email').value.trim();
+  const p1 = $('reg-pass').value;
+  const p2 = $('reg-pass2').value;
+  if (!nick || !email || !p1 || !p2) { err.textContent = 'Uzupełnij wszystkie pola'; return; }
+  if (!/^[A-Za-z0-9_]{3,16}$/.test(nick)) { err.textContent = 'Nick: 3–16 znaków, tylko litery, cyfry i _'; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { err.textContent = 'Niepoprawny adres e-mail'; return; }
+  if (p1.length < 8) { err.textContent = 'Hasło musi mieć co najmniej 8 znaków'; return; }
+  if (p1 !== p2) { err.textContent = 'Hasła nie są takie same'; return; }
+  busy($('btn-register'), async () => {
+    try {
+      renderAccounts(await L.registerServer(nick, email, p1, $('login-remember').checked));
+      for (const id of ['reg-pass', 'reg-pass2']) $(id).value = '';
+    } catch (x) { err.textContent = cleanErr(x); }
+  });
+};
 function renderLoginList(state) {
   const box = $('login-accounts');
-  box.replaceChildren(...state.list.map((acc) => el('button', { className: 'login-acc', onclick: async () => {
-    try { renderAccounts(await L.selectAccount(acc.id)); } catch (e) { $('login-error').textContent = cleanErr(e); }
+  const label = (t) => ({ microsoft: 'Konto Microsoft', melina: 'Konto serwera' }[t] || 'Konto bez hasła');
+  box.replaceChildren(...state.list.map((acc) => el('button', { type: 'button', className: 'login-acc', onclick: async () => {
+    $('login-error').textContent = '';
+    if (acc.type === 'melina') { $('nick').value = acc.name; }
+    try { renderAccounts(await L.selectAccount(acc.id)); } catch (e) {
+      if (acc.type === 'melina') { $('login-pass').focus(); $('login-error').textContent = cleanErr(e); } else $('login-error').textContent = cleanErr(e);
+    }
   } }, el('span', { className: 'login-acc-head', style: `background-image:url("${headUrl(acc.name)}")` }),
-  el('span', {}, el('b', { textContent: acc.name }), el('small', { textContent: acc.type === 'microsoft' ? 'Konto Microsoft' : 'Konto non-premium' })))));
+  el('span', {}, el('b', { textContent: acc.name }), el('small', { textContent: label(acc.type) })))));
   $('login-accounts-wrap').classList.toggle('hidden', !state.list.length);
 }
 $('btn-add-account').onclick = () => openAddAccount(false);
@@ -309,22 +394,11 @@ $('btn-logout').onclick = async () => {
   if (appState !== 'idle') return;
   renderAccounts(await L.logout());
 };
-$('btn-ms').onclick = async () => {
+L.on('accounts', (st) => renderAccounts(st));
+$('btn-ms').onclick = () => busy($('btn-ms'), async () => {
   $('login-error').textContent = '';
-  try {
-    renderAccounts(await L.addMicrosoft());
-    $('add-account').classList.add('hidden');
-  } catch (e) { $('login-error').textContent = 'Logowanie nieudane: ' + cleanErr(e); }
-};
-const addOffline = async () => {
-  $('login-error').textContent = '';
-  try {
-    renderAccounts(await L.addOffline($('nick').value));
-    $('add-account').classList.add('hidden');
-  } catch (e) { $('login-error').textContent = cleanErr(e); }
-};
-$('btn-offline').onclick = addOffline;
-$('nick').onkeydown = (e) => { if (e.key === 'Enter') addOffline(); };
+  try { renderAccounts(await L.addMicrosoft()); } catch (e) { $('login-error').textContent = 'Logowanie nieudane: ' + cleanErr(e); }
+});
 
 // ---------- skin i peleryna ----------
 function showCommand(cmd, justSaved) {

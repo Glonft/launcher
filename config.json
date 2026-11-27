@@ -11,5 +11,6 @@
     "max": "6G"
   },
   "microsoftClientId": null,
-  "statsUrl": "https://melinasmp-api.duckdns.org/api/launcher/hello"
+  "statsUrl": "https://melinasmp-api.duckdns.org/api/launcher/hello",
+  "authUrl": "https://melinasmp-api.duckdns.org"
 }
