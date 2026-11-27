@@ -23,7 +23,8 @@ function addLog(msg) {
 function setLog(show) {
   $('log-wrap').classList.toggle('hidden', !show);
   $('page-home').classList.toggle('log-open', show);
-  $('btn-log').textContent = show ? 'Ukryj log' : 'Pokaż log';
+  $('btn-log').title = show ? 'Ukryj log' : 'Pokaż log';
+  $('btn-log').classList.toggle('active', show);
   if (show) { const log = $('log'); log.scrollTop = log.scrollHeight; }
 }
 $('btn-log').onclick = (e) => { e.preventDefault(); setLog($('log-wrap').classList.contains('hidden')); };
@@ -59,7 +60,7 @@ function showInfo(info) {
       : '';
     if (info.requiredLauncher) L.getUpdate().then(showUpdate).catch(() => {});
   }
-  if (info.server && info.server.name) { $('scene-server').textContent = info.server.name; $('login-server').textContent = info.server.name; }
+  if (info.server && info.server.name) { $('login-server').textContent = info.server.name; }
   if (!Array.isArray(info.news)) return;
   renderSceneNews(info.news);
   for (const id of ['news-list', 'news-full']) {
@@ -92,7 +93,7 @@ function applyAppearance(a) {
   try { localStorage.setItem('melina.appearance', JSON.stringify({ colors: (a && a.colors) || null })); } catch { /* bez znaczenia */ }
   // układ ekranu Start: „Kafelki” albo „Scena”
   const l = (a && a.layout) || {};
-  setHomeStyle(l.style === 'scene' ? 'scene' : 'tiles', a);
+  setHomeStyle(l.style === 'scene' ? 'scene' : 'tiles');
   const home = $('view-home');
   for (const c of ['news-left', 'news-below', 'news-hidden', 'mods-first', 'mods-hidden']) home.classList.remove(c);
   if (l.news && l.news !== 'right') home.classList.add(`news-${l.news}`);
@@ -191,16 +192,8 @@ function openNewsItem(n) {
   const item = [...$('news-full').children].find((x) => x.dataset.key === `${n.date}|${n.title}`);
   if (item) { item.scrollIntoView({ block: 'start' }); item.classList.add('flash'); setTimeout(() => item.classList.remove('flash'), 1500); }
 }
-/** Przenosi przycisk Graj i pasek postępu do kafelka „Scena” albo z powrotem na kartę serwera. */
-function setHomeStyle(style, a) {
-  const playRow = document.querySelector('.play-row');
-  const prog = document.querySelector('.progress');
-  if (style === 'scene') {
-    $('scene-play-slot').append(playRow, prog);
-  } else {
-    const hero = document.querySelector('.hero');
-    hero.append(playRow, prog);
-  }
+/** Układ ekranu Start: „Kafelki” albo „Scena” (przycisk Graj jest zawsze na dolnym pasku). */
+function setHomeStyle(style) {
   homeStyle = style;
   $('view-home').classList.toggle('hidden', style === 'scene');
   $('view-scene').classList.toggle('hidden', style !== 'scene');
@@ -227,50 +220,47 @@ L.on('winstate', (st) => {
 // ---------- status serwera ----------
 const plGraczy = (n) => (n === 1 ? 'gracz' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 'gracze' : 'graczy');
 async function refreshStatus() {
-  $('btn-ping').disabled = true;
+  const st = $('pb-status');
+  const ping = $('pb-ping');
   try {
     const r = await L.pingServer();
     if (r.server) showInfo({ server: r.server, news: null });
-    const dot = $('status-dot');
     $('players-badge').textContent = r.online && r.players.online ? String(r.players.online) : '';
-    if (r.online) {
-      dot.className = 'dot on';
-      $('status-text').textContent = 'Online';
-      dot.title = `Online${r.version ? ' – ' + r.version : ''}`;
-      $('players-count').textContent = String(r.players.online);
-      $('ping-ms').textContent = `${r.latency} ms`;
-      $('scene-dot').className = 'dot on';
-      $('scene-online-text').textContent = `${r.players.online} ${plGraczy(r.players.online)}`;
-    } else {
-      dot.className = 'dot off';
-      dot.title = r.error || 'Offline';
-      $('status-text').textContent = 'Offline';
-      $('players-count').textContent = '–';
-      $('ping-ms').textContent = '–';
-      $('scene-dot').className = 'dot off';
-      $('scene-online-text').textContent = 'Offline';
-    }
-  } catch (e) {
-    $('status-dot').className = 'dot off';
+    st.classList.toggle('on', !!r.online);
+    st.classList.toggle('off', !r.online);
+    st.title = r.online ? `Online${r.version ? ' – ' + r.version : ''}` : (r.error || 'Offline');
+    $('status-text').textContent = r.online ? 'Online' : 'Offline';
+    $('players-count').textContent = r.online ? String(r.players.online) : '–';
+    $('ping-ms').textContent = r.online ? `${r.latency} ms` : '–';
+    // ikona zasięgu: im mniejszy ping, tym więcej kresek
+    const bars = !r.online ? 0 : r.latency < 60 ? 4 : r.latency < 120 ? 3 : r.latency < 220 ? 2 : 1;
+    ping.dataset.bars = String(bars);
+  } catch {
+    st.classList.remove('on'); st.classList.add('off');
     $('status-text').textContent = 'Offline';
+    $('players-count').textContent = '–';
+    $('ping-ms').textContent = '–';
+    ping.dataset.bars = '0';
     $('players-badge').textContent = '';
-  } finally {
-    $('btn-ping').disabled = false;
   }
 }
-$('btn-ping').onclick = refreshStatus;
+/** Przydzielona pamięć na dolnym pasku (z ustawień). */
+async function refreshRam() {
+  try {
+    const { settings: s } = await L.getSettings();
+    $('pb-ram').textContent = `${String(Number(s.maxRamGB)).replace('.', ',')} GB`;
+  } catch { /* zostaje „–” */ }
+}
+$('btn-bar-repair').onclick = () => $('btn-repair').click();
 
 // ---------- konta ----------
 function renderAccounts(state) {
   accountsState = state;
   const a = state.active;
   updatePlayButton();
-  renderLoginList(state);
   if (!a) { openAddAccount(true); return; }
   closeAddAccount();
   $('rail-head').style.backgroundImage = `url("${headUrl(a.name)}")`;
-  $('scene-nick').textContent = a.name;
-  $('scene-head').style.backgroundImage = `url("${headUrl(a.name)}")`;
 
   // lista w ustawieniach
   const box = $('accounts-list');
@@ -337,7 +327,7 @@ $('lv-login').onsubmit = (e) => {
   const pass = $('login-pass').value;
   if (!nick || !pass) { err.textContent = 'Uzupełnij wszystkie pola'; return; }
   busy($('btn-login'), async () => {
-    try { renderAccounts(await L.loginServer(nick, pass, $('login-remember').checked)); $('login-pass').value = ''; } catch (x) { err.textContent = cleanErr(x); }
+    try { renderAccounts(await L.loginServer(nick, pass, true)); $('login-pass').value = ''; } catch (x) { err.textContent = cleanErr(x); }
   });
 };
 $('lv-forgot').onsubmit = (e) => {
@@ -370,24 +360,11 @@ $('lv-register').onsubmit = (e) => {
   if (p1 !== p2) { err.textContent = 'Hasła nie są takie same'; return; }
   busy($('btn-register'), async () => {
     try {
-      renderAccounts(await L.registerServer(nick, email, p1, $('login-remember').checked));
+      renderAccounts(await L.registerServer(nick, email, p1, true));
       for (const id of ['reg-pass', 'reg-pass2']) $(id).value = '';
     } catch (x) { err.textContent = cleanErr(x); }
   });
 };
-function renderLoginList(state) {
-  const box = $('login-accounts');
-  const label = (t) => ({ microsoft: 'Konto Microsoft', melina: 'Konto serwera' }[t] || 'Konto bez hasła');
-  box.replaceChildren(...state.list.map((acc) => el('button', { type: 'button', className: 'login-acc', onclick: async () => {
-    $('login-error').textContent = '';
-    if (acc.type === 'melina') { $('nick').value = acc.name; }
-    try { renderAccounts(await L.selectAccount(acc.id)); } catch (e) {
-      if (acc.type === 'melina') { $('login-pass').focus(); $('login-error').textContent = cleanErr(e); } else $('login-error').textContent = cleanErr(e);
-    }
-  } }, el('span', { className: 'login-acc-head', style: `background-image:url("${headUrl(acc.name)}")` }),
-  el('span', {}, el('b', { textContent: acc.name }), el('small', { textContent: label(acc.type) })))));
-  $('login-accounts-wrap').classList.toggle('hidden', !state.list.length);
-}
 $('btn-add-account').onclick = () => openAddAccount(false);
 const closeAddAccount = () => { $('add-account').classList.add('hidden'); $('add-account').classList.remove('required'); };
 $('btn-logout').onclick = async () => {
@@ -581,12 +558,12 @@ $('btn-skin-reset').onclick = async (e) => {
 // ---------- granie ----------
 function updatePlayButton() {
   const b = $('btn-play');
-  const labels = { idle: 'Graj', preparing: 'Anuluj', running: 'Gra uruchomiona', busy: 'Proszę czekać…' };
-  $('play-label').textContent = labels[appState] || 'Graj';
+  const labels = { idle: 'Uruchom grę', preparing: 'Anuluj', running: 'Gra uruchomiona', busy: 'Proszę czekać…' };
+  $('play-label').textContent = labels[appState] || 'Uruchom grę';
   b.classList.toggle('cancel', appState === 'preparing');
   b.disabled = !(appState === 'preparing' || (appState === 'idle' && accountsState.active));
   $('btn-repair').disabled = appState !== 'idle';
-  $('btn-more-repair').disabled = appState !== 'idle';
+  $('btn-bar-repair').disabled = appState !== 'idle';
 }
 $('btn-play').onclick = () => {
   if (appState === 'preparing') { L.cancelPlay(); $('btn-play').disabled = true; return; } // „Anuluj”
@@ -602,6 +579,7 @@ L.on('progress', ({ label, value }) => {
 L.on('state', (s) => {
   appState = s;
   updatePlayButton();
+  $('page-home').classList.toggle('busy', s !== 'idle');
   if (s === 'idle') { $('progress-label').textContent = 'Gotowy'; $('bar-fill').style.width = '0'; refreshStatus(); }
 });
 L.on('error', (msg) => {
@@ -721,7 +699,7 @@ async function openAddons() {
 let playersTimer = null;
 let lastPlayers = null;
 function playerCard(name) {
-  const img = el('img', { src: headUrl(name, 64), alt: '' });
+  const img = el('img', { src: headUrl(name, 96), alt: '' });
   img.onload = () => img.classList.add('loaded');
   img.onerror = () => { img.replaceWith(el('div', { className: 'player-noface' })); };
   if (img.complete && img.naturalWidth) img.classList.add('loaded');
@@ -866,6 +844,7 @@ $('btn-settings-save').onclick = async () => {
     settingsSnapshot = JSON.stringify(c);
     animOn = c.uiAnim !== false;
     addLog('Zapisano ustawienia.');
+    refreshRam();
     const b = $('btn-settings-save');
     b.textContent = '✔ Zapisano';
     setTimeout(() => { b.textContent = 'Zapisz'; }, 1500);
@@ -906,7 +885,8 @@ async function init() {
   showUpdate(await L.getUpdate());
   showInfo(await L.refreshInfo()); // świeże newsy/adres z sieci
   refreshStatus();
-  setInterval(refreshStatus, 60 * 1000);
+  setInterval(refreshStatus, 30 * 1000);
+  refreshRam();
   // podgląd 3D skina przygotowujemy w wolnej chwili, żeby pierwsze otwarcie okna było szybkie
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
   idle(() => { try { ensurePreview(); } catch { /* spróbujemy przy otwarciu okna */ } });
@@ -947,7 +927,6 @@ async function refreshMyMods() {
   const on = myMods.filter((m) => m.enabled && !m.blocked).length;
   $('mymods-count').textContent = on ? String(on) : '';
   renderHomeMods();
-  $('btn-play-clean').classList.toggle('hidden', !myMods.some((m) => m.enabled && !m.blocked && (m.kind || 'mod') === 'mod'));
   const box = $('mymods-list');
   if (mm.kind === 'installed') return renderInstalled(box);
   const mine = myMods.filter((m) => (m.kind || 'mod') === mm.kind);
@@ -1238,11 +1217,6 @@ $('btn-mymods-updates').onclick = async () => {
       [mmBtn('Aktualizuj', 'primary-sm', async () => { await L.myModsUpdate(u); await refreshMyMods(); $('btn-mymods-updates').click(); })])));
   } catch (e) { box.replaceChildren(); $('mymods-msg').textContent = cleanErr(e); }
 };
-$('btn-play-clean').onclick = (e) => {
-  e.preventDefault();
-  if ($('btn-play').disabled) return;
-  appState = 'preparing'; updatePlayButton(); L.play({ withoutMine: true });
-};
 refreshMyMods().catch(() => {});
 
 // ---------- zamykanie okien: klik obok, Esc, ✕ ----------
@@ -1374,9 +1348,4 @@ function renderHomeMods() {
   $('home-mods-open').textContent = on.length > 3 ? `Wszystkie (${on.length})` : 'Przeglądaj';
 }
 
-const moreMenu = $('more-menu');
-$('btn-more').onclick = (e) => { e.stopPropagation(); moreMenu.classList.toggle('hidden'); };
-document.addEventListener('click', (e) => { if (!moreMenu.contains(e.target)) moreMenu.classList.add('hidden'); });
-moreMenu.addEventListener('click', (e) => { if (e.target.closest('button')) setTimeout(() => moreMenu.classList.add('hidden'), 0); });
-$('btn-more-repair').onclick = () => $('btn-repair').click();
-$('btn-more-folder').onclick = () => L.openFolder();
+

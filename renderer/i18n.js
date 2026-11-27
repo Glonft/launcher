@@ -3,7 +3,7 @@
 (function () {
   const EN = {
     // pasek boczny, okno
-    'Graj': 'Play', 'Gracze': 'Players', 'Wydarzenia': 'Events', 'Dodatki': 'Add-ons', 'Changelog': 'Changelog',
+    'Graj': 'Play', 'Uruchom grę': 'Launch game', 'Gra uruchomiona': 'Game running', 'Gracze online': 'Players online', 'Pamięć dla gry': 'Memory for the game', 'Status serwera': 'Server status', 'Gracze': 'Players', 'Wydarzenia': 'Events', 'Dodatki': 'Add-ons', 'Changelog': 'Changelog',
     'Moje mody': 'My mods', 'Ustawienia': 'Settings', 'Wyloguj': 'Log out', 'Skin i peleryna': 'Skin & cape',
     'Minimalizuj': 'Minimize', 'Maksymalizuj': 'Maximize', 'Przywróć': 'Restore', 'Zamknij': 'Close', 'Menu': 'Menu',
     'Język': 'Language', 'Język / Language': 'Język / Language',

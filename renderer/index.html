@@ -65,31 +65,6 @@
                 <h2 id="server-name" class="server-name">MelinaSMP</h2>
 
               </div>
-              <button id="btn-ping" class="icon-btn" title="Odśwież status" aria-label="Odśwież status"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
-            </div>
-            <div class="stats">
-              <div class="stat"><span class="stat-label">Status</span><span class="stat-val"><span id="status-dot" class="dot"></span><span id="status-text">…</span></span></div>
-              <div class="stat"><span class="stat-label">Gracze</span><span id="players-count" class="stat-val">–</span></div>
-              <div class="stat"><span class="stat-label">Ping</span><span id="ping-ms" class="stat-val">–</span></div>
-            </div>
-            <div class="play-row">
-              <button id="btn-play" class="play" disabled><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg><span id="play-label">Graj</span></button>
-              <div class="more-wrap">
-                <button id="btn-more" class="more-btn" title="Więcej" aria-label="Więcej opcji"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
-                <div id="more-menu" class="more-menu hidden">
-                  <button id="btn-play-clean" class="hidden">Uruchom bez moich modów</button>
-                  <button id="btn-more-repair">Napraw pliki gry</button>
-                  <button id="btn-more-folder">Otwórz folder gry</button>
-                  <button id="btn-log">Pokaż log</button>
-                </div>
-              </div>
-            </div>
-            <div class="progress">
-              <div class="progress-row">
-                <span id="progress-label" class="muted small">Gotowy</span>
-                <span id="seed-status" class="seed-status small hidden"></span>
-              </div>
-              <div class="bar"><div id="bar-fill"></div></div>
             </div>
           </section>
 
@@ -118,16 +93,30 @@
             <button id="scene-next" class="scene-arrow next" aria-label="Następne"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6l6 6-6 6"/></svg></button>
           </div>
         </section>
-        <section class="scene-card scene-play">
-          <div class="scene-play-head">
-            <h3 id="scene-server">MelinaSMP</h3>
-            <span id="scene-online" class="scene-pill"><span id="scene-dot" class="dot"></span><span id="scene-online-text">…</span></span>
-          </div>
-          <div class="scene-as"><span id="scene-head" class="scene-head"></span><span>Uruchamianie jako <b id="scene-nick">–</b></span></div>
-          <div id="scene-play-slot"></div>
-        </section>
       </main>
 
+      <div class="play-dock">
+        <div class="progress">
+          <div class="progress-row">
+            <span id="progress-label" class="muted small">Gotowy</span>
+            <span id="seed-status" class="seed-status small hidden"></span>
+          </div>
+          <div class="bar"><div id="bar-fill"></div></div>
+        </div>
+        <div class="play-bar">
+          <div class="pb-stat" title="Gracze online"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7.6" r="3.3"/><circle cx="5.4" cy="9.4" r="2.5"/><circle cx="18.6" cy="9.4" r="2.5"/><path d="M6.4 19.2a5.6 5.6 0 0 1 11.2 0 .8.8 0 0 1-.8.8H7.2a.8.8 0 0 1-.8-.8z"/><path d="M5.2 13.3c.6 0 1.2.1 1.8.4a7.1 7.1 0 0 0-2 5.3H1.8a.8.8 0 0 1-.8-.8v-.4a4.6 4.6 0 0 1 4.2-4.5z"/><path d="M18.8 13.3a4.6 4.6 0 0 1 4.2 4.5v.4a.8.8 0 0 1-.8.8H19a7.1 7.1 0 0 0-2-5.3c.6-.3 1.2-.4 1.8-.4z"/></svg><b id="players-count">–</b></div>
+          <span class="pb-sep"></span>
+          <div id="pb-ping" class="pb-stat" title="Ping"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect class="sig1" x="3" y="16" width="3" height="5" rx="1"/><rect class="sig2" x="8" y="12" width="3" height="9" rx="1"/><rect class="sig3" x="13" y="8" width="3" height="13" rx="1"/><rect class="sig4" x="18" y="4" width="3" height="17" rx="1"/></svg><b id="ping-ms">–</b></div>
+          <span class="pb-sep"></span>
+          <button id="btn-bar-repair" class="pb-btn" title="Napraw pliki gry" aria-label="Napraw pliki gry"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M14.3 2.6a1 1 0 0 1 1.1-.2l4.4 2a1 1 0 0 1 .3 1.6l-1.7 1.7 1.4 1.4a1 1 0 0 1 0 1.4l-1.4 1.4a1 1 0 0 1-1.4 0l-1.4-1.4-1.2 1.2-2.8-2.8 1.2-1.2-.8-.8a1 1 0 0 1 0-1.4z"/><path d="M9.6 11.1l2.8 2.8-7.6 7.6a2 2 0 0 1-2.8-2.8z"/></svg></button>
+          <button id="btn-play" class="play" disabled><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.6v14.8a1.4 1.4 0 0 0 2.1 1.2l11.6-7.4a1.4 1.4 0 0 0 0-2.4L9.1 3.4A1.4 1.4 0 0 0 7 4.6z"/></svg><span id="play-label">Uruchom grę</span></button>
+          <button id="btn-log" class="pb-btn" title="Pokaż log" aria-label="Pokaż log"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M7.5 6h9a5.5 5.5 0 0 1 5.4 6.5l-.9 4.7a2.8 2.8 0 0 1-4.9 1.3L14.4 16H9.6l-1.7 2.5A2.8 2.8 0 0 1 3 17.2l-.9-4.7A5.5 5.5 0 0 1 7.5 6zM7 9a1 1 0 0 0-1 1v1H5a1 1 0 1 0 0 2h1v1a1 1 0 1 0 2 0v-1h1a1 1 0 1 0 0-2H8v-1a1 1 0 0 0-1-1zm9.5 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm-2 2.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5z"/></svg></button>
+          <span class="pb-sep"></span>
+          <div class="pb-stat" title="Pamięć dla gry"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 0 1 1 1v1h4V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v1h1a1 1 0 1 1 0 2h-1v4h1a1 1 0 1 1 0 2h-1v1a3 3 0 0 1-3 3h-1v1a1 1 0 1 1-2 0v-1h-4v1a1 1 0 1 1-2 0v-1H7a3 3 0 0 1-3-3v-1H3a1 1 0 1 1 0-2h1v-4H3a1 1 0 0 1 0-2h1V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1zm0 7v6h6V9z"/></svg><b id="pb-ram">–</b></div>
+          <span class="pb-sep"></span>
+          <div id="pb-status" class="pb-stat" title="Status serwera"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M4.5 3h15A2 2 0 0 1 21.5 5v4a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm1.5 3.75a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 1 0-2.5 0zM11 6.2v1.6h6.5V6.2zM4.5 13h15a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2zm1.5 3.75a1.25 1.25 0 1 0 2.5 0 1.25 1.25 0 1 0-2.5 0zM11 16.2v1.6h6.5v-1.6z"/></svg><b id="status-text">…</b></div>
+        </div>
+      </div>
       <div id="log-wrap" class="log-wrap hidden">
         <div class="log-head"><span>Log</span><button id="btn-log-close" class="tb-btn" aria-label="Zamknij log" title="Zamknij log">✕</button></div>
         <pre id="log"></pre>
@@ -375,13 +364,8 @@
         <img class="login-logo" src="app-icon.png" alt="">
         <h2>Logowanie do <span id="login-server">MelinaSMP</span></h2>
         <p class="hint">Zaloguj się do launchera korzystając z jednego z dostępnych sposobów</p>
-        <div id="login-accounts-wrap" class="login-accounts-wrap hidden">
-          <div class="login-label">Zapisane konta</div>
-          <div id="login-accounts" class="login-accounts"></div>
-        </div>
         <input id="nick" placeholder="Podaj nick" maxlength="16" autocomplete="username">
         <div class="pw"><input id="login-pass" type="password" placeholder="Podaj hasło" autocomplete="current-password" maxlength="200"><button type="button" class="eye" tabindex="-1" aria-label="Pokaż hasło" title="Pokaż hasło"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path class="eye-open" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="eye-open" cx="12" cy="12" r="3"/><path class="eye-off" d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div>
-        <label class="check remember"><input type="checkbox" id="login-remember" checked> Zapamiętaj mnie</label>
         <p id="login-error" class="error"></p>
         <button id="btn-login" class="primary" type="submit">Zaloguj się</button>
         <a href="#" id="go-forgot" class="small login-link">Zapomniałem hasła</a>
