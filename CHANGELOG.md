@@ -8,6 +8,17 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.9.8 – 27.11.2026
+- Nowy pasek boczny: strony zamiast okienek, dymki z nazwami i animacje przejść
+- Nowy dolny pasek na ekranie Start z przyciskiem „Uruchom grę”, graczami, pingiem, pamięcią i statusem serwera
+- Nowa zakładka Changelog ze zmianami launchera i serwera
+- Nowe okno logowania: konto serwera z hasłem, rejestracja i reset hasła
+- Nowy wygląd listy graczy z główkami skinów
+- Przełącznik języka PL/EN
+- Tryb wyświetlania gry: Okno albo Pełny ekran
+- Wylogowanie na dole paska, skin na górze
+- Discord jako kafelek na ekranie Start albo ikona na pasku
+
 ## 0.9.7 – 26.11.2026
 - Poprawione strzałki w aktualnościach: równo na środku i tylko wtedy, gdy jest co przewijać
 - Ikony na pasku bocznym mogą mieć inną kolejność albo być schowane, zgodnie z ustawieniami serwera
