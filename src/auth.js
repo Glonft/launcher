@@ -62,6 +62,7 @@ class AccountStore {
     const d = this._read();
     d.list = d.list.filter((a) => a.id !== acc.id).concat(acc);
     d.active = acc.id;
+    delete d.loggedOut;
     this._write(d);
   }
 
@@ -69,7 +70,7 @@ class AccountStore {
   state() {
     const d = this._read();
     const pub = (a) => ({ id: a.id, type: a.type, name: a.name });
-    const active = d.list.find((a) => a.id === d.active) || d.list[0] || null;
+    const active = d.loggedOut ? null : d.list.find((a) => a.id === d.active) || d.list[0] || null;
     return { active: active ? pub(active) : null, list: d.list.map(pub) };
   }
 
@@ -77,6 +78,15 @@ class AccountStore {
     const d = this._read();
     if (!d.list.some((a) => a.id === id)) throw new Error('Nie ma takiego konta.');
     d.active = id;
+    delete d.loggedOut;
+    this._write(d);
+    return this.state();
+  }
+
+  /** „Wyloguj”: konta zostają zapamiętane, ale launcher wraca do ekranu logowania. */
+  logout() {
+    const d = this._read();
+    d.loggedOut = true;
     this._write(d);
     return this.state();
   }
@@ -111,6 +121,7 @@ class AccountStore {
 
   _activeRaw() {
     const d = this._read();
+    if (d.loggedOut) return null;
     return d.list.find((x) => x.id === d.active) || d.list[0] || null;
   }
 

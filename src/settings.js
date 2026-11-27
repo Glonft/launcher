@@ -51,6 +51,7 @@ class SettingsStore {
     s.jvmArgs = String(s.jvmArgs || '').trim();
     s.discordRpc = s.discordRpc !== false;
     s.discordRpcButton = !!s.discordRpcButton;
+    s.uiAnim = s.uiAnim !== false;
 
     const addons = {};
     for (const [k, v] of Object.entries(s.addons || {})) {

@@ -19,11 +19,15 @@ function addLog(msg) {
   if (log.textContent.length > 40000) log.textContent = log.textContent.slice(-30000);
   log.scrollTop = log.scrollHeight;
 }
-$('btn-log').onclick = (e) => {
-  e.preventDefault();
-  $('log').classList.toggle('hidden');
-  $('btn-log').textContent = $('log').classList.contains('hidden') ? 'Pokaż log' : 'Ukryj log';
-};
+/** Log na ekranie Start – wysuwa się przed kafelki (Wydarzenia i Graj chowają się za nim). */
+function setLog(show) {
+  $('log-wrap').classList.toggle('hidden', !show);
+  $('page-home').classList.toggle('log-open', show);
+  $('btn-log').textContent = show ? 'Ukryj log' : 'Pokaż log';
+  if (show) { const log = $('log'); log.scrollTop = log.scrollHeight; }
+}
+$('btn-log').onclick = (e) => { e.preventDefault(); setLog($('log-wrap').classList.contains('hidden')); };
+$('btn-log-close').onclick = () => setLog(false);
 
 // ---------- informacje z paczki (serwer, newsy) ----------
 function showInfo(info) {
@@ -41,11 +45,12 @@ function showInfo(info) {
     box.textContent = (a && a.text) || '';
   }
   if ('discord' in info) {
-    const d = $('btn-discord');
-    d.classList.toggle('hidden', !info.discord);
-    d.href = info.discord || '#';
+    discordLink = info.discord || null;
+    $('btn-discord').href = discordLink || '#';
+    applyDiscord();
   }
   if ('appearance' in info) applyAppearance(info.appearance);
+  if (Array.isArray(info.serverChangelog)) { serverChangelog = info.serverChangelog; if (page === 'changelog') renderChangelog(); }
   if ('requiredLauncher' in info) {
     const box = $('launcher-outdated');
     box.classList.toggle('hidden', !info.requiredLauncher);
@@ -119,14 +124,35 @@ function newsImage(img, target) {
     if (target.tagName === 'IMG') target.src = url; else target.style.backgroundImage = `url("${url}")`;
   });
 }
-/** Pasek boczny: kolejność górnych ikon i ukryte ikony (z panelu). Start i Ustawienia są zawsze. */
-const RAIL_IDS = { mymods: 'btn-mymods', addons: 'btn-addons', news: 'nav-news', players: 'btn-players', discord: 'btn-discord' };
+/** Pasek boczny: kolejność górnych ikon i ukryte ikony (z panelu). Skin, Graj, Ustawienia i Wyloguj są zawsze. */
+const RAIL_IDS = { players: 'btn-players', news: 'nav-news', addons: 'btn-addons', changelog: 'btn-changelog', mymods: 'btn-mymods' };
+const RAIL_DEFAULT = ['players', 'news', 'addons', 'changelog', 'mymods'];
+let discordLink = null;
+let discordPlace = 'card'; // gdzie Discord: 'card' (kafelek na Start), 'rail' (ikona na pasku) albo 'both'
 function applyRail(l) {
-  const order = Array.isArray(l.railOrder) && l.railOrder.length ? l.railOrder : ['mymods', 'addons', 'news', 'players'];
+  const order = (Array.isArray(l.railOrder) ? l.railOrder : []).filter((k) => RAIL_IDS[k]);
+  for (const k of RAIL_DEFAULT) if (!order.includes(k)) order.splice(RAIL_DEFAULT.indexOf(k), 0, k);
   const hidden = new Set(Array.isArray(l.railHidden) ? l.railHidden : []);
   const space = document.querySelector('.rail-space');
-  for (const k of order) if (RAIL_IDS[k] && k !== 'discord') space.before($(RAIL_IDS[k]));
+  for (const k of order) space.before($(RAIL_IDS[k]));
   for (const [k, id] of Object.entries(RAIL_IDS)) $(id).classList.toggle('rail-off', hidden.has(k));
+  discordPlace = ['card', 'rail', 'both'].includes(l.discord) ? l.discord : 'card';
+  applyDiscord();
+}
+/** Discord: ikona na pasku albo kafelek na ekranie Start (albo oba – jeśli tak ustawiono w panelu). */
+let discordCountAsked = false;
+function applyDiscord() {
+  const on = !!discordLink;
+  $('btn-discord').classList.toggle('hidden', !on || discordPlace === 'card');
+  const card = on && discordPlace !== 'rail';
+  $('scene-discord').classList.toggle('hidden', !card);
+  if (!card) return;
+  $('scene-discord').href = discordLink;
+  if (discordCountAsked) return;
+  discordCountAsked = true;
+  L.discordCounts().then((c) => {
+    $('scene-discord-count').textContent = c && c.members ? `Dołącz do ${c.members} osób na naszym Discordzie!` : 'Kliknij, żeby dołączyć!';
+  }).catch(() => { $('scene-discord-count').textContent = 'Kliknij, żeby dołączyć!'; });
 }
 
 /** Strzałki aktualności tylko wtedy, gdy jest co przewijać (inaczej karty zajmują całą szerokość). */
@@ -160,7 +186,7 @@ function renderSceneNews(news) {
   requestAnimationFrame(updateSceneArrows);
 }
 function openNewsItem(n) {
-  showView('news');
+  go('news');
   const item = [...$('news-full').children].find((x) => x.dataset.key === `${n.date}|${n.title}`);
   if (item) { item.scrollIntoView({ block: 'start' }); item.classList.add('flash'); setTimeout(() => item.classList.remove('flash'), 1500); }
 }
@@ -170,25 +196,16 @@ function setHomeStyle(style, a) {
   const prog = document.querySelector('.progress');
   if (style === 'scene') {
     $('scene-play-slot').append(playRow, prog);
-    const inv = $('btn-discord').getAttribute('href');
-    const showDc = !!(a.layout && a.layout.discordCard !== false) && inv && inv !== '#';
-    $('scene-discord').classList.toggle('hidden', !showDc);
-    if (showDc) {
-      $('scene-discord').href = inv;
-      L.discordCounts().then((c) => {
-        $('scene-discord-count').textContent = c && c.members ? `Dołącz do ${c.members} osób na naszym Discordzie!` : 'Kliknij, żeby dołączyć!';
-      }).catch(() => {});
-    }
   } else {
     const hero = document.querySelector('.hero');
     hero.append(playRow, prog);
   }
   homeStyle = style;
-  if (!$('view-news').classList.contains('hidden')) return; // ktoś czyta aktualności – nie przełączamy widoku
-  showView('home');
+  $('view-home').classList.toggle('hidden', style === 'scene');
+  $('view-scene').classList.toggle('hidden', style !== 'scene');
 }
 
-// ---------- pasek górny okna ----------
+// ---------- przyciski okna (prawy górny róg) ----------
 $('tb-min').onclick = () => L.winMinimize();
 $('tb-max').onclick = () => L.winToggleMax();
 $('tb-close').onclick = () => L.winClose();
@@ -202,6 +219,7 @@ L.on('winstate', (st) => {
 });
 
 // ---------- status serwera ----------
+const plGraczy = (n) => (n === 1 ? 'gracz' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 'gracze' : 'graczy');
 async function refreshStatus() {
   $('btn-ping').disabled = true;
   try {
@@ -213,10 +231,10 @@ async function refreshStatus() {
       dot.className = 'dot on';
       $('status-text').textContent = 'Online';
       dot.title = `Online${r.version ? ' – ' + r.version : ''}`;
-      $('players-count').textContent = `${r.players.online}/${r.players.max}`;
+      $('players-count').textContent = String(r.players.online);
       $('ping-ms').textContent = `${r.latency} ms`;
       $('scene-dot').className = 'dot on';
-      $('scene-online-text').textContent = `${r.players.online}/${r.players.max}`;
+      $('scene-online-text').textContent = `${r.players.online} ${plGraczy(r.players.online)}`;
     } else {
       dot.className = 'dot off';
       dot.title = r.error || 'Offline';
@@ -240,26 +258,13 @@ $('btn-ping').onclick = refreshStatus;
 function renderAccounts(state) {
   accountsState = state;
   const a = state.active;
-  $('account-none').classList.toggle('hidden', !!a);
-  $('account-current').classList.toggle('hidden', !a);
   updatePlayButton();
-  if (!a) return;
-
-  $('player').textContent = a.name;
-  $('acc-type').textContent = a.type === 'microsoft' ? 'Konto Microsoft (premium)' : 'Konto non-premium';
-  const av = $('avatar');
-  av.textContent = '';
-  av.style.backgroundImage = `url("${headUrl(a.name)}")`;
+  renderLoginList(state);
+  if (!a) { openAddAccount(true); return; }
+  closeAddAccount();
   $('rail-head').style.backgroundImage = `url("${headUrl(a.name)}")`;
   $('scene-nick').textContent = a.name;
   $('scene-head').style.backgroundImage = `url("${headUrl(a.name)}")`;
-
-  const sel = $('account-select');
-  sel.replaceChildren();
-  for (const acc of state.list) {
-    sel.append(el('option', { value: acc.id, textContent: acc.name + (acc.type === 'microsoft' ? ' ★' : ''), selected: acc.id === a.id }));
-  }
-  sel.append(el('option', { value: '__add', textContent: '+ Dodaj konto…' }));
 
   // lista w ustawieniach
   const box = $('accounts-list');
@@ -267,25 +272,37 @@ function renderAccounts(state) {
   for (const acc of state.list) {
     const rm = el('button', { className: 'rm', textContent: 'Usuń', title: 'Usuń konto z launchera' });
     rm.onclick = async () => renderAccounts(await L.removeAccount(acc.id));
+    const use = acc.id === a.id ? el('span', { className: 'acc-active', textContent: 'aktywne' })
+      : el('button', { className: 'ghost-sm', textContent: 'Użyj', onclick: async () => renderAccounts(await L.selectAccount(acc.id)) });
     box.append(el('div', { className: 'acc-row' },
-      el('span', { textContent: `${acc.name} – ${acc.type === 'microsoft' ? 'Microsoft' : 'non-premium'}${acc.id === a.id ? ' (aktywne)' : ''}` }), rm));
+      el('span', { textContent: `${acc.name} – ${acc.type === 'microsoft' ? 'Microsoft' : 'non-premium'}` }), use, rm));
   }
 }
 
-$('account-select').onchange = async (e) => {
-  const v = e.target.value;
-  if (v === '__add') { e.target.value = accountsState.active.id; openAddAccount(); return; }
-  renderAccounts(await L.selectAccount(v));
-};
-
-function openAddAccount() {
+/** Okno logowania: wymagane, gdy nikt nie jest zalogowany (po „Wyloguj” albo przy pierwszym uruchomieniu). */
+function openAddAccount(required = false) {
+  const ov = $('add-account');
+  if (!ov.classList.contains('hidden') && ov.classList.contains('required') === required) return;
   $('login-error').textContent = '';
   $('nick').value = '';
-  $('add-account').classList.remove('hidden');
+  ov.classList.toggle('required', required);
+  ov.classList.remove('hidden');
+  if (required) setTimeout(() => $('nick').focus(), 50);
 }
-$('btn-add-account-first').onclick = openAddAccount;
-$('btn-add-account').onclick = openAddAccount;
-const closeAddAccount = () => $('add-account').classList.add('hidden');
+function renderLoginList(state) {
+  const box = $('login-accounts');
+  box.replaceChildren(...state.list.map((acc) => el('button', { className: 'login-acc', onclick: async () => {
+    try { renderAccounts(await L.selectAccount(acc.id)); } catch (e) { $('login-error').textContent = cleanErr(e); }
+  } }, el('span', { className: 'login-acc-head', style: `background-image:url("${headUrl(acc.name)}")` }),
+  el('span', {}, el('b', { textContent: acc.name }), el('small', { textContent: acc.type === 'microsoft' ? 'Konto Microsoft' : 'Konto non-premium' })))));
+  $('login-accounts-wrap').classList.toggle('hidden', !state.list.length);
+}
+$('btn-add-account').onclick = () => openAddAccount(false);
+const closeAddAccount = () => { $('add-account').classList.add('hidden'); $('add-account').classList.remove('required'); };
+$('btn-logout').onclick = async () => {
+  if (appState !== 'idle') return;
+  renderAccounts(await L.logout());
+};
 $('btn-ms').onclick = async () => {
   $('login-error').textContent = '';
   try {
@@ -382,6 +399,7 @@ function ensurePreview() {
 }
 let skinSeq = 0;
 async function openSkin() {
+  if (skinData && (pickedSkin !== null || pickedCape !== undefined)) return; // wrócono na stronę z niezapisanymi zmianami
   const seq = ++skinSeq;
   pickedSkin = null;
   pickedCape = undefined;
@@ -392,7 +410,6 @@ async function openSkin() {
   $('btn-skin-save').disabled = true;
   $('capes').replaceChildren();
   $('skin-name').textContent = accountsState.active ? accountsState.active.name : '';
-  $('skin-dialog').classList.remove('hidden');
   ensurePreview();
   try {
     // 1) od razu ostatnio znany wygląd (konta premium), 2) świeży z serwerów Mojang w tle
@@ -404,7 +421,7 @@ async function openSkin() {
       $('skin-status').textContent = 'Sprawdzam, czy coś się zmieniło…';
     }
     const fresh = await L.getSkin();
-    if (seq !== skinSeq || $('skin-dialog').classList.contains('hidden')) return;
+    if (seq !== skinSeq || page !== 'skin') return;
     // nie nadpisujemy, jeśli w międzyczasie wybrałeś inny skin albo pelerynę
     if (!cached || (pickedSkin === null && pickedCape === undefined)) applySkinData(fresh);
     $('skin-status').textContent = '';
@@ -418,8 +435,6 @@ $('btn-skin-copy').onclick = async () => {
   catch (e) { $('skin-error').textContent = cleanErr(e); }
 };
 
-$('btn-skin').onclick = openSkin;
-const closeSkin = () => $('skin-dialog').classList.add('hidden');
 $('btn-skin-pick').onclick = async () => {
   $('skin-error').textContent = '';
   try {
@@ -512,8 +527,7 @@ L.on('state', (s) => {
 L.on('error', (msg) => {
   addLog('BŁĄD: ' + msg);
   $('progress-label').textContent = 'Błąd: ' + msg;
-  $('log').classList.remove('hidden');
-  $('btn-log').textContent = 'Ukryj log';
+  setLog(true);
 });
 
 // ---------- aktualizacje launchera ----------
@@ -621,10 +635,7 @@ async function openAddons() {
   $('addons-error').textContent = '';
   const { settings: s, optional } = await L.getSettings();
   renderAddons(optional, s.addons || {});
-  $('addons-dialog').classList.remove('hidden');
 }
-const closeAddons = () => $('addons-dialog').classList.add('hidden');
-$('btn-addons').onclick = openAddons;
 
 // ---------- gracze online ----------
 let playersTimer = null;
@@ -643,13 +654,11 @@ async function loadPlayers() {
     if (lastPlayers && JSON.stringify(lastPlayers) === JSON.stringify(r)) return; // nic się nie zmieniło – nic nie przerysowujemy
     lastPlayers = r;
     if (!r.online) {
-      $('players-total').textContent = '';
       box.replaceChildren(el('p', { className: 'hint', textContent: `Serwer jest offline${r.error ? ` (${r.error})` : ''}.` }));
       $('players-note').textContent = '';
       return;
     }
     const p = r.players;
-    $('players-total').textContent = `${p.online}/${p.max}`;
     $('players-badge').textContent = p.online ? String(p.online) : '';
     if (!p.online) {
       box.replaceChildren(el('p', { className: 'hint', textContent: 'Nikogo nie ma – bądź pierwszy!' }));
@@ -668,22 +677,17 @@ async function openPlayers() {
   // od razu ostatnia znana lista (bez migających zarysów), świeża podmienia się po cichu
   if (!lastPlayers) {
     $('players-full').replaceChildren(el('p', { className: 'hint', textContent: 'Wczytuję listę graczy…' }));
-    $('players-total').textContent = '';
   }
-  $('players-dialog').classList.remove('hidden');
-  $('btn-players').classList.add('active');
   await loadPlayers();
   clearInterval(playersTimer);
   playersTimer = setInterval(loadPlayers, 30 * 1000);
 }
 function closePlayers() {
   clearInterval(playersTimer);
-  $('players-dialog').classList.add('hidden');
-  $('btn-players').classList.remove('active');
 }
-$('btn-players').onclick = openPlayers;
 
 async function openSettings() {
+  if (settingsSnapshot && JSON.stringify(collectSettings()) !== settingsSnapshot) return; // niezapisane zmiany zostają
   const { settings: s, system } = await L.getSettings();
   $('ram-max').max = system.maxAllowedRamGB;
   $('ram-max').value = s.maxRamGB;
@@ -691,8 +695,8 @@ async function openSettings() {
   updateRamLabels();
   $('win-w').value = s.width;
   $('win-h').value = s.height;
-  $('fullscreen').checked = s.fullscreen;
-  $('win-w').disabled = $('win-h').disabled = s.fullscreen;
+  setDisplayMode(!!s.fullscreen);
+  $('ui-anim').checked = s.uiAnim !== false;
   $('after-launch').value = s.afterLaunch;
   $('ui-scale').value = s.uiScale === 'auto' || s.uiScale == null ? 'auto' : String(s.uiScale);
   if (!$('ui-scale').value) $('ui-scale').value = 'auto';
@@ -704,7 +708,6 @@ async function openSettings() {
   renderAccounts(await L.getAccounts());
   $('settings-error').textContent = '';
   hideDirChange();
-  $('settings').classList.remove('hidden');
   settingsSnapshot = JSON.stringify(collectSettings());
 }
 
@@ -720,15 +723,16 @@ function collectSettings() {
     uiScale: $('ui-scale').value === 'auto' ? 'auto' : Number($('ui-scale').value),
     discordRpc: $('discord-rpc').checked,
     discordRpcButton: $('discord-rpc-button').checked,
+    uiAnim: $('ui-anim').checked,
   };
 }
-/** Zamknięcie ustawień kliknięciem obok / Esc / ✕ – pyta o niezapisane zmiany. */
-function closeSettingsSafely() {
-  if (settingsSnapshot && JSON.stringify(collectSettings()) !== settingsSnapshot) {
-    if (confirm('Masz niezapisane zmiany w ustawieniach. Zapisać je?\n\nOK – zapisz, Anuluj – odrzuć zmiany.')) { $('btn-settings-save').click(); return; }
-  }
-  $('settings').classList.add('hidden');
+/** Tryb wyświetlania gry: dwa przyciski Okno / Pełny ekran. */
+function setDisplayMode(full) {
+  $('fullscreen').checked = full;
+  for (const b of $('display-mode').children) b.classList.toggle('active', (b.dataset.mode === 'fullscreen') === full);
+  $('win-size').classList.toggle('hidden', full);
 }
+for (const b of $('display-mode').children) b.onclick = () => setDisplayMode(b.dataset.mode === 'fullscreen');
 
 function hideDirChange() {
   pendingDir = null;
@@ -741,11 +745,9 @@ function showDirChange(dir) {
   $('dir-change').classList.remove('hidden');
 }
 
-$('btn-settings').onclick = openSettings;
 $('discord-rpc').onchange = () => { $('discord-rpc-button').disabled = !$('discord-rpc').checked; };
 
 $('ram-max').oninput = updateRamLabels;
-$('fullscreen').onchange = () => { $('win-w').disabled = $('win-h').disabled = $('fullscreen').checked; };
 $('btn-folder').onclick = (e) => { e.preventDefault(); L.openFolder(); };
 
 $('btn-pick').onclick = async () => showDirChange(await L.pickFolder());
@@ -771,19 +773,22 @@ $('btn-dir-apply').onclick = async () => {
 };
 
 $('btn-repair').onclick = async () => {
-  $('settings').classList.add('hidden');
-  $('log').classList.remove('hidden');
-  $('btn-log').textContent = 'Ukryj log';
+  go('home');
+  setLog(true);
   try { await L.repair(); } catch { /* błąd już w logu */ }
 };
 
 $('btn-settings-save').onclick = async () => {
   $('settings-error').textContent = '';
   try {
-    await L.saveSettings(collectSettings());
-    settingsSnapshot = null;
-    $('settings').classList.add('hidden');
+    const c = collectSettings();
+    await L.saveSettings(c);
+    settingsSnapshot = JSON.stringify(c);
+    animOn = c.uiAnim !== false;
     addLog('Zapisano ustawienia.');
+    const b = $('btn-settings-save');
+    b.textContent = '✔ Zapisano';
+    setTimeout(() => { b.textContent = 'Zapisz'; }, 1500);
   } catch (e) {
     $('settings-error').textContent = cleanErr(e);
   }
@@ -803,16 +808,14 @@ function showChanges(title, entries) {
   $('changes').classList.remove('hidden');
 }
 $('btn-changes-close').onclick = () => $('changes').classList.add('hidden');
-$('btn-changelog').onclick = async (e) => {
-  e.preventDefault();
-  showChanges('Lista zmian', await L.getChangelog());
-};
+$('btn-changelog-full').onclick = (e) => { e.preventDefault(); clTab = 'launcher'; go('changelog'); };
 
 // ---------- start ----------
 async function init() {
   const a = await L.getApp();
   document.title = a.appName;
-  $('tb-title').textContent = /launcher/i.test(a.appName) ? a.appName : `${a.appName} Launcher`;
+  launcherChangelog = a.changelog || null;
+  animOn = a.uiAnim !== false;
   $('version-info').dataset.version = a.version;
   if (a.portable) $('version-info').dataset.portable = '1';
   renderVersionInfo();
@@ -903,7 +906,6 @@ function playerModItem(m) {
 async function openMyMods() {
   $('mymods-msg').textContent = '';
   $('mymods-updates').replaceChildren();
-  $('mymods-dialog').classList.remove('hidden');
   await refreshMyMods().catch((e) => { $('mymods-msg').textContent = cleanErr(e); });
   loadPackIds().then(() => refreshResultActions());
   setMmKind(mm.kind);
@@ -1090,7 +1092,6 @@ async function addMyModFiles(paths) {
   } catch (e) { $('mymods-msg').textContent = cleanErr(e); }
 }
 
-$('btn-mymods').onclick = openMyMods;
 function setMmKind(kind) {
   if (mm.kind !== kind) mm.showAll = false;
   mm.kind = kind;
@@ -1132,7 +1133,6 @@ $('mymods-hint-more').onclick = () => {
 };
 $('mymods-installed-q').addEventListener('input', () => renderInstalled($('mymods-list')));
 for (const b of $('mymods-tabs').querySelectorAll('button')) b.onclick = () => setMmKind(b.dataset.kind);
-const closeMyMods = () => $('mymods-dialog').classList.add('hidden');
 $('btn-mymods-search').onclick = () => searchMyMods();
 $('mymods-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchMyMods(); });
 $('mymods-sort').addEventListener('change', () => { $('mymods-sort').dataset.touched = '1'; searchMyMods(); });
@@ -1167,13 +1167,8 @@ refreshMyMods().catch(() => {});
 // ---------- zamykanie okien: klik obok, Esc, ✕ ----------
 
 const OVERLAY_CLOSE = {
-  'add-account': () => closeAddAccount(),
-  'mymods-dialog': () => closeMyMods(),
-  'addons-dialog': () => closeAddons(),
-  'players-dialog': () => closePlayers(),
-  'skin-dialog': () => closeSkin(),
+  'add-account': () => { if (!$('add-account').classList.contains('required')) closeAddAccount(); },
   changes: () => $('btn-changes-close').click(),
-  settings: () => closeSettingsSafely(),
 };
 for (const [id, close] of Object.entries(OVERLAY_CLOSE)) {
   const ov = $(id);
@@ -1199,22 +1194,90 @@ document.addEventListener('keydown', (e) => {
 // ---------- nowy układ: pasek, widoki, menu ⋯, „Moje mody” na ekranie Start ----------
 
 let homeStyle = 'tiles';
-function showView(view) {
-  $('view-home').classList.toggle('hidden', view !== 'home' || homeStyle === 'scene');
-  $('view-scene').classList.toggle('hidden', view !== 'home' || homeStyle !== 'scene');
-  $('view-news').classList.toggle('hidden', view !== 'news');
-  $('nav-home').classList.toggle('active', view === 'home');
-  $('nav-news').classList.toggle('active', view === 'news');
-  $('title').textContent = view === 'news' ? 'Aktualności' : '';
-  $('title').classList.toggle('hidden', view !== 'news');
+
+// ---------- strony (zamiast okien): pasek boczny przełącza zawartość obok ----------
+const PAGES = {
+  skin: { el: 'skin-dialog', enter: () => openSkin() },
+  home: { el: 'page-home' },
+  players: { el: 'players-dialog', enter: () => openPlayers(), leave: () => closePlayers() },
+  news: { el: 'page-news' },
+  addons: { el: 'addons-dialog', enter: () => openAddons() },
+  changelog: { el: 'page-changelog', enter: () => renderChangelog() },
+  mymods: { el: 'mymods-dialog', enter: () => openMyMods() },
+  settings: { el: 'settings', enter: () => openSettings() },
+};
+let page = 'home';
+let animOn = true;
+let pageBusy = false;
+let pageQueued = null;
+const ANIM_MS = 300;
+/** Kolejność stron = kolejność widocznych przycisków na pasku (od góry). */
+function pageIndex(p) {
+  const btns = [...document.querySelectorAll('.rail [data-page]')].filter((b) => !b.classList.contains('rail-off') && !b.classList.contains('hidden'));
+  const i = btns.findIndex((b) => b.dataset.page === p);
+  return i < 0 ? btns.length : i;
 }
-$('nav-home').onclick = () => showView('home');
-$('nav-news').onclick = () => showView('news');
-$('news-all').onclick = (e) => { e.preventDefault(); showView('news'); };
-$('scene-news-all').onclick = (e) => { e.preventDefault(); showView('news'); };
+function markRail() {
+  for (const b of document.querySelectorAll('.rail [data-page]')) b.classList.toggle('active', b.dataset.page === page);
+}
+function go(p) {
+  if (!PAGES[p] || p === page) return;
+  if (pageBusy) { pageQueued = p; return; }
+  const from = $(PAGES[page].el);
+  const to = $(PAGES[p].el);
+  const down = pageIndex(p) > pageIndex(page); // przycisk niżej → nowa strona wjeżdża z dołu
+  try { PAGES[page].leave && PAGES[page].leave(); } catch { /* nic */ }
+  page = p;
+  markRail();
+  to.classList.remove('hidden');
+  try { const r = PAGES[p].enter && PAGES[p].enter(); if (r && r.catch) r.catch(() => {}); } catch { /* nic */ }
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!animOn || reduce) { from.classList.add('hidden'); return; }
+  pageBusy = true;
+  const box = $('pages');
+  box.classList.add('animating');
+  from.classList.add(down ? 'pg-out-up' : 'pg-out-down');
+  to.classList.add(down ? 'pg-in-up' : 'pg-in-down');
+  setTimeout(() => {
+    from.classList.add('hidden');
+    from.classList.remove('pg-out-up', 'pg-out-down');
+    to.classList.remove('pg-in-up', 'pg-in-down');
+    box.classList.remove('animating');
+    pageBusy = false;
+    if (pageQueued) { const q = pageQueued; pageQueued = null; go(q); }
+  }, ANIM_MS);
+}
+for (const b of document.querySelectorAll('.rail [data-page]')) b.addEventListener('click', () => go(b.dataset.page));
+markRail();
+$('news-all').onclick = (e) => { e.preventDefault(); go('news'); };
+$('scene-news-all').onclick = (e) => { e.preventDefault(); go('news'); };
+
+// ---------- Changelog: Launcher / Server ----------
+let launcherChangelog = null;
+let serverChangelog = [];
+let clTab = 'launcher';
+function renderChangelog() {
+  $('cl-launcher').classList.toggle('active', clTab === 'launcher');
+  $('cl-server').classList.toggle('active', clTab === 'server');
+  const list = $('cl-list');
+  const entries = clTab === 'launcher'
+    ? (launcherChangelog || []).map((e) => ({ title: `Wersja ${e.version}`, date: e.date, items: e.items }))
+    : serverChangelog.map((e) => ({ title: e.title, date: e.date, items: e.items, text: e.text }));
+  if (!entries.length) {
+    list.replaceChildren(el('p', { className: 'hint cl-empty', textContent: clTab === 'server' ? 'Administracja nie dodała jeszcze żadnych zmian serwera.' : 'Brak wpisów.' }));
+    return;
+  }
+  list.replaceChildren(...entries.map((e) => el('article', { className: 'cl-card' },
+    el('div', { className: 'cl-card-head' }, el('h4', { textContent: e.title || '' }), e.date ? el('span', { className: 'cl-date', textContent: e.date }) : ''),
+    e.items && e.items.length ? el('ul', {}, ...e.items.map((t) => el('li', { textContent: t }))) : '',
+    e.text ? el('p', { textContent: e.text }) : '')));
+  list.scrollTop = 0;
+}
+$('cl-launcher').onclick = () => { if (clTab !== 'launcher') { clTab = 'launcher'; renderChangelog(); } };
+$('cl-server').onclick = () => { if (clTab !== 'server') { clTab = 'server'; renderChangelog(); } };
 $('scene-prev').onclick = () => { const t = $('scene-news-track'); t.scrollBy({ left: -t.clientWidth * 0.8, behavior: 'smooth' }); };
 $('scene-next').onclick = () => { const t = $('scene-news-track'); t.scrollBy({ left: t.clientWidth * 0.8, behavior: 'smooth' }); };
-$('home-mods-open').onclick = (e) => { e.preventDefault(); openMyMods(); };
+$('home-mods-open').onclick = (e) => { e.preventDefault(); go('mymods'); };
 
 function renderHomeMods() {
   const box = $('home-mods');

@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('launcher', {
   addMicrosoft: () => invoke('accounts:addMicrosoft'),
   selectAccount: (id) => invoke('accounts:select', id),
   removeAccount: (id) => invoke('accounts:remove', id),
+  logout: () => invoke('accounts:logout'),
 
   getSkin: (opts) => invoke('skin:get', opts),
   pickSkin: () => invoke('skin:pick'),

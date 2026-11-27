@@ -186,7 +186,20 @@ function publicInfo(manifest) {
     packVersion: manifest ? manifest.version : null,
     discord: discordLink(manifest),
     appearance: appearanceFrom(manifest),
+    serverChangelog: serverChangelogFrom(manifest),
   };
+}
+
+/** Zmiany na serwerze (z panelu) – tylko tekst, od najnowszych. */
+function serverChangelogFrom(manifest) {
+  const list = manifest && Array.isArray(manifest.changelog) ? manifest.changelog : [];
+  const str = (v, max) => String(v == null ? '' : v).slice(0, max);
+  return list.slice(0, 200).filter((e) => e && typeof e === 'object').map((e) => ({
+    title: str(e.title, 120),
+    date: str(e.date, 40),
+    items: Array.isArray(e.items) ? e.items.slice(0, 60).map((x) => str(x, 400)).filter(Boolean) : [],
+    text: str(e.text, 4000),
+  }));
 }
 
 /** Wygląd launchera z panelu: kolory, tło i układ ekranu Start (wszystko sprawdzone, nic „na słowo”). */
@@ -214,13 +227,15 @@ function appearanceFrom(manifest) {
 }
 
 /** Pasek boczny z panelu: kolejność górnych ikon i ikony ukryte (Start i Ustawienia zostają zawsze). */
-const RAIL_TOP = ['mymods', 'addons', 'news', 'players'];
-const RAIL_ALL = [...RAIL_TOP, 'discord'];
+const RAIL_TOP = ['players', 'news', 'addons', 'changelog', 'mymods'];
 function railFrom(l) {
   const order = (Array.isArray(l.railOrder) ? l.railOrder : []).filter((k, i, arr) => RAIL_TOP.includes(k) && arr.indexOf(k) === i);
   for (const k of RAIL_TOP) if (!order.includes(k)) order.push(k);
-  const hidden = (Array.isArray(l.railHidden) ? l.railHidden : []).filter((k, i, arr) => RAIL_ALL.includes(k) && arr.indexOf(k) === i);
-  return { railOrder: order, railHidden: hidden };
+  const hidden = (Array.isArray(l.railHidden) ? l.railHidden : []).filter((k, i, arr) => RAIL_TOP.includes(k) && arr.indexOf(k) === i);
+  // Discord: kafelek na Start, ikona na pasku albo oba (dawniej: ukryta ikona / wyłączony kafelek)
+  let discord = ['card', 'rail', 'both'].includes(l.discord) ? l.discord : null;
+  if (!discord) discord = (l.railHidden || []).includes('discord') ? 'card' : l.discordCard === false ? 'rail' : 'card';
+  return { railOrder: order, railHidden: hidden, discord };
 }
 
 /** Obrazek z panelu (ikona, obrazek newsa): pobierany raz do folderu launchera i sprawdzany sumą. Zwraca ścieżkę pliku. */
@@ -627,6 +642,7 @@ app.whenReady().then(() => {
     addons: {},
     discordRpc: true, // status na Discordzie – domyślnie włączony
     discordRpcButton: false, // przycisk z zaproszeniem pod statusem – domyślnie wyłączony
+    uiAnim: true, // animacje przejść między stronami
   });
 
   const changelog = () => readChangelog(path.join(__dirname, 'CHANGELOG.md'));
@@ -641,7 +657,7 @@ app.whenReady().then(() => {
       whatsNew = changelog().filter((e) => e.version === cur); // aktualizacja ze starszej wersji
     }
     if (seen !== cur) { try { settings.set({ lastSeenVersion: cur }); } catch { /* ignoruj */ } }
-    return { appName: config.appName, version: cur, portable: isPortable(), info: publicInfo(cachedManifest()), whatsNew };
+    return { appName: config.appName, version: cur, portable: isPortable(), info: publicInfo(cachedManifest()), whatsNew, changelog: changelog(), uiAnim: settings.get().uiAnim !== false };
   });
   ipcMain.handle('changelog:get', () => changelog());
   ipcMain.handle('info:refresh', async () => {
@@ -676,6 +692,7 @@ app.whenReady().then(() => {
   ipcMain.handle('accounts:addMicrosoft', () => accounts.addMicrosoft());
   ipcMain.handle('accounts:select', (_e, id) => { const r = accounts.select(id); setTimeout(() => prefetchSkin(), 500); return r; });
   ipcMain.handle('accounts:remove', (_e, id) => accounts.remove(id));
+  ipcMain.handle('accounts:logout', () => accounts.logout());
 
   // ---- skin i peleryna ----
   // Premium: oficjalne API Minecrafta. Non-premium: MineSkin + komenda SkinRestorera do schowka.
