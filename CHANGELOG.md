@@ -8,6 +8,15 @@ Ta sekcja pojawi się w okienku „Co nowego” w launcherze i jako opis wydania
 Budowanie nowej wersji nie ruszy, jeśli dla tej wersji brakuje sekcji.
 -->
 
+## 0.10.0 – 28.11.2026
+- Nowa sekcja „Ostatnie nowości” na ekranie Start
+- Nowa strona Wydarzenia z okienkiem szczegółów
+- Gracze online jako osobne kafelki, które pojawiają się po wejściu na serwer
+- Ustawienia zapisują się automatycznie
+- Przezroczyste kafelki, jeśli serwer je włączy
+- Pełne tłumaczenie na angielski
+- Poprawione ikony Graj i naprawy
+
 ## 0.9.9 – 27.11.2026
 - Ikona i nazwa launchera w lewym górnym rogu
 - Okno logowania na tle serwera, z przyciskami okna i zmianą języka
