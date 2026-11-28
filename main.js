@@ -228,7 +228,10 @@ function appearanceFrom(manifest) {
     ...railFrom(l),
   };
   const name = typeof a.appName === 'string' ? a.appName.replace(/[^\p{L}\p{N} ._'!-]/gu, '').trim().slice(0, 40) : '';
-  return { colors, background, layout, icon: img(a.icon), appName: name || null };
+  // przezroczystość kafelków (0–90%) i rozmycie tła za nimi – z panelu
+  const t = a.tiles && typeof a.tiles === 'object' ? a.tiles : null;
+  const tiles = t ? { opacity: Math.max(0, Math.min(90, Math.round(Number(t.opacity) || 0))), blur: !!t.blur } : null;
+  return { colors, background, layout, icon: img(a.icon), appName: name || null, tiles };
 }
 
 /** Pasek boczny z panelu: kolejność górnych ikon i ikony ukryte (Start i Ustawienia zostają zawsze). */

@@ -36,7 +36,6 @@ function showInfo(info) {
   const srv = info.server;
   if (srv) {
     currentServer = srv;
-    $('server-name').textContent = srv.name || 'Serwer';
   }
   if ('announcement' in info) {
     const a = info.announcement;
@@ -62,20 +61,7 @@ function showInfo(info) {
   }
   if (info.server && info.server.name) { $('login-server').textContent = info.server.name; }
   if (!Array.isArray(info.news)) return;
-  renderSceneNews(info.news);
-  for (const id of ['news-list', 'news-full']) {
-    const list = $(id);
-    list.replaceChildren();
-    if (!info.news.length) { list.append(el('p', { className: 'muted', textContent: 'Brak aktualności.' })); continue; }
-    for (const n of info.news) {
-      const item = el('div', { className: 'news-item' });
-      if (n.date) item.append(el('span', { className: 'date', textContent: n.date }));
-      if (id === 'news-full' && n.image) { const img = el('img', { className: 'news-img', alt: '' }); newsImage(n.image, img); item.append(img); }
-      item.append(el('h4', { textContent: n.title || '' }), el('p', { textContent: n.body || '' }));
-      item.dataset.key = `${n.date}|${n.title}`;
-      list.append(item);
-    }
-  }
+  renderNews(info.news);
 }
 
 // bez przeciągania obrazków i tekstu z okna launchera (pliki .jar/.zip przeciąga się do niego, nie z niego)
@@ -94,15 +80,9 @@ function applyAppearance(a) {
   if (a && a.colors && T) T.apply(a.colors);
   else if (T) for (const k of Object.keys(T.vars({}))) document.documentElement.style.removeProperty(k);
   try { localStorage.setItem('melina.appearance', JSON.stringify({ colors: (a && a.colors) || null })); } catch { /* bez znaczenia */ }
-  // układ ekranu Start: „Kafelki” albo „Scena”
   const l = (a && a.layout) || {};
-  setHomeStyle(l.style === 'scene' ? 'scene' : 'tiles');
-  const home = $('view-home');
-  for (const c of ['news-left', 'news-below', 'news-hidden', 'mods-first', 'mods-hidden']) home.classList.remove(c);
-  if (l.news && l.news !== 'right') home.classList.add(`news-${l.news}`);
-  if (l.modsFirst) home.classList.add('mods-first');
-  if (l.modsHidden) home.classList.add('mods-hidden');
   applyRail(l);
+  applyTiles(a && a.tiles);
   // tło
   const bg = a && a.background;
   if (!bg) { currentBg = null; document.body.classList.remove('has-bg'); $('bg-layer').style.backgroundImage = ''; return; }
@@ -160,46 +140,79 @@ function applyDiscord() {
   }).catch(() => { $('scene-discord-count').textContent = 'Kliknij, żeby dołączyć!'; });
 }
 
-/** Strzałki aktualności tylko wtedy, gdy jest co przewijać (inaczej karty zajmują całą szerokość). */
-function updateSceneArrows() {
-  const wrap = $('scene-news-wrap');
-  const t = $('scene-news-track');
-  wrap.classList.remove('no-scroll');
-  const scroll = t.scrollWidth > t.clientWidth + 2;
-  wrap.classList.toggle('no-scroll', !scroll);
-  if (!scroll) return;
-  $('scene-prev').disabled = t.scrollLeft <= 2;
-  $('scene-next').disabled = t.scrollLeft + t.clientWidth >= t.scrollWidth - 2;
+/** Przezroczyste kafelki (z panelu): kolor kafelka z kanałem alfa + opcjonalne rozmycie tła za nim. */
+function applyTiles(t) {
+  const root = document.documentElement;
+  const on = !!(t && t.opacity > 0);
+  document.body.classList.toggle('tiles-custom', on);
+  document.body.classList.toggle('tiles-blur', !!(t && t.blur));
+  if (!on) { root.style.removeProperty('--tile-bg'); return; }
+  const raw = getComputedStyle(root).getPropertyValue('--card').trim();
+  let r = 26, g = 23, b = 31;
+  const hex = raw.match(/^#([0-9a-f]{6})$/i);
+  const rgb = raw.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (hex) { r = parseInt(hex[1].slice(0, 2), 16); g = parseInt(hex[1].slice(2, 4), 16); b = parseInt(hex[1].slice(4, 6), 16); } else if (rgb) { [r, g, b] = rgb.slice(1, 4).map(Number); }
+  root.style.setProperty('--tile-bg', `rgba(${r}, ${g}, ${b}, ${(1 - t.opacity / 100).toFixed(2)})`);
 }
-new ResizeObserver(() => updateSceneArrows()).observe($('scene-news-wrap'));
-$('scene-news-track').addEventListener('scroll', () => updateSceneArrows(), { passive: true });
 
-function renderSceneNews(news) {
-  const track = $('scene-news-track');
-  track.replaceChildren(...news.slice(0, 10).map((n) => {
-    const card = el('article', { className: `scene-news-card${n.image ? ' has-img' : ''}` },
-      el('div', { className: 'scene-news-img' }),
-      el('div', { className: 'scene-news-body' },
-        n.date ? el('span', { className: 'date', textContent: n.date }) : '',
-        el('h4', { textContent: n.title || '' }),
-        el('p', { textContent: n.body || '' }),
-        el('button', { className: 'scene-more', textContent: 'Czytaj więcej', onclick: () => openNewsItem(n) })));
-    if (n.image) newsImage(n.image, card.querySelector('.scene-news-img'));
+// ---------- Ostatnie nowości (Start), strona Wydarzenia i okienko szczegółów ----------
+const CAL_SVG = '<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M7 2.5a1 1 0 0 1 1 1V4h8v-.5a1 1 0 1 1 2 0V4h.5A2.5 2.5 0 0 1 21 6.5V8H3V6.5A2.5 2.5 0 0 1 5.5 4H6v-.5a1 1 0 0 1 1-1zM3 9.5h18v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5z"/></svg>';
+/** „25.11.2026” → liczba do sortowania (bez daty: na koniec, w kolejności z panelu). */
+function newsTime(d) {
+  const m = String(d || '').match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  return m ? new Date(+m[3], +m[2] - 1, +m[1]).getTime() : -Infinity;
+}
+const plainText = (t) => String(t || '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/^- /gm, '• ');
+function dateRow(n, big = false) {
+  const row = el('div', { className: big ? 'ev-meta' : 'nw-meta' });
+  if (n.date) { const d = el('span', { className: 'ev-date' }); d.innerHTML = CAL_SVG; d.append(el('span', { textContent: n.date })); row.append(d); }
+  if (n.tag) row.append(el('span', { className: 'ev-tag', textContent: n.tag }));
+  return row;
+}
+function renderNews(list) {
+  const news = list.map((n, i) => ({ ...n, _i: i })).sort((a, b) => (newsTime(b.date) - newsTime(a.date)) || (a._i - b._i));
+  // Start: maks. 3 najnowsze, kafelki tej samej wielkości od lewej; bez wpisów – nic
+  $('home-news').classList.toggle('hidden', !news.length);
+  $('home-news-row').replaceChildren(...news.slice(0, 3).map((n) => {
+    const tile = el('article', { className: `nw-tile${n.image ? ' has-img' : ''}`, tabIndex: 0, onclick: () => openEvent(n) },
+      el('div', { className: 'nw-img' }),
+      el('div', { className: 'nw-body' }, dateRow(n), el('h4', { textContent: n.title || '' }), el('p', { textContent: plainText(n.body) })));
+    tile.onkeydown = (e) => { if (e.key === 'Enter') openEvent(n); };
+    if (n.image) newsImage(n.image, tile.querySelector('.nw-img'));
+    return tile;
+  }));
+  // Wydarzenia: poziome kafelki jeden pod drugim
+  const box = $('ev-list');
+  if (!news.length) { box.replaceChildren(el('p', { className: 'ev-empty', textContent: 'Brak wydarzeń' })); return; }
+  box.replaceChildren(...news.map((n) => {
+    const card = el('article', { className: `ev-card${n.image ? ' has-img' : ''}`, tabIndex: 0, onclick: () => openEvent(n) },
+      el('div', { className: 'ev-card-img' }),
+      el('div', { className: 'ev-card-body' }, dateRow(n, true), el('h3', { textContent: n.title || '' }), el('p', { textContent: plainText(n.body) })));
+    card.onkeydown = (e) => { if (e.key === 'Enter') openEvent(n); };
+    if (n.image) newsImage(n.image, card.querySelector('.ev-card-img'));
     return card;
   }));
-  if (!news.length) track.append(el('p', { className: 'muted', textContent: 'Brak aktualności.' }));
-  requestAnimationFrame(updateSceneArrows);
 }
-function openNewsItem(n) {
-  go('news');
-  const item = [...$('news-full').children].find((x) => x.dataset.key === `${n.date}|${n.title}`);
-  if (item) { item.scrollIntoView({ block: 'start' }); item.classList.add('flash'); setTimeout(() => item.classList.remove('flash'), 1500); }
+function openEvent(n) {
+  const ov = $('ev-modal');
+  const img = $('ev-img');
+  img.style.backgroundImage = '';
+  img.classList.toggle('hidden', !n.image);
+  if (n.image) newsImage(n.image, img);
+  $('ev-date').textContent = n.date || '';
+  $('ev-date').parentElement.classList.toggle('hidden', !n.date);
+  $('ev-tag').textContent = n.tag || '';
+  $('ev-tag').classList.toggle('hidden', !n.tag);
+  $('ev-title').textContent = n.title || '';
+  $('ev-body').textContent = plainText(n.body);
+  ov.querySelector('.ev-content').scrollTop = 0;
+  ov.classList.remove('hidden', 'ev-out');
 }
-/** Układ ekranu Start: „Kafelki” albo „Scena” (przycisk Graj jest zawsze na dolnym pasku). */
-function setHomeStyle(style) {
-  homeStyle = style;
-  $('view-home').classList.toggle('hidden', style === 'scene');
-  $('view-scene').classList.toggle('hidden', style !== 'scene');
+function closeEvent() {
+  const ov = $('ev-modal');
+  if (ov.classList.contains('hidden')) return;
+  ov.classList.add('ev-out');
+  setTimeout(() => { ov.classList.add('hidden'); ov.classList.remove('ev-out'); }, 160);
 }
 
 // ---------- przyciski okna (prawy górny róg) ----------
@@ -719,12 +732,21 @@ async function loadPlayers() {
     const p = r.players;
     $('players-badge').textContent = p.online ? String(p.online) : '';
     if (!p.online) {
-      box.replaceChildren(el('p', { className: 'hint', textContent: 'Nikogo nie ma – bądź pierwszy!' }));
+      box.replaceChildren(el('p', { className: 'hint players-empty', textContent: 'Nikogo nie ma – bądź pierwszy!' }));
     } else {
+      // każdy gracz to osobny kafelek: istniejące zostają, nowi wjeżdżają z animacją, ci co wyszli znikają
       const names = [...p.names].sort((a, b) => a.localeCompare(b, 'pl', { sensitivity: 'base' }));
-      box.replaceChildren(...names.map(playerCard));
+      const old = new Map([...box.querySelectorAll('.player-card[data-name]')].map((c) => [c.dataset.name, c]));
+      const first = !old.size;
+      const cards = names.map((n) => {
+        const c = old.get(n) || playerCard(n);
+        c.dataset.name = n;
+        if (!old.has(n) && !first) c.classList.add('joined');
+        return c;
+      });
       const hidden = p.online - p.names.length;
-      if (hidden > 0) box.append(el('div', { className: 'player-card more', textContent: `i ${hidden} ${hidden === 1 ? 'inny' : 'innych'}` }));
+      if (hidden > 0) cards.push(el('div', { className: 'player-card more', textContent: `i ${hidden} ${hidden === 1 ? 'inny' : 'innych'}` }));
+      box.replaceChildren(...cards);
     }
     $('players-note').textContent = '';
   } catch (e) {
@@ -738,14 +760,13 @@ async function openPlayers() {
   }
   await loadPlayers();
   clearInterval(playersTimer);
-  playersTimer = setInterval(loadPlayers, 30 * 1000);
+  playersTimer = setInterval(loadPlayers, 15 * 1000);
 }
 function closePlayers() {
   clearInterval(playersTimer);
 }
 
 async function openSettings() {
-  if (settingsSnapshot && JSON.stringify(collectSettings()) !== settingsSnapshot) return; // niezapisane zmiany zostają
   const { settings: s, system } = await L.getSettings();
   $('ram-max').max = system.maxAllowedRamGB;
   $('ram-max').value = s.maxRamGB;
@@ -759,7 +780,6 @@ async function openSettings() {
   $('ui-scale').value = s.uiScale === 'auto' || s.uiScale == null ? 'auto' : String(s.uiScale);
   if (!$('ui-scale').value) $('ui-scale').value = 'auto';
   $('game-dir').value = s.gameDir;
-  $('jvm-args').value = s.jvmArgs;
   $('discord-rpc').checked = s.discordRpc !== false;
   $('discord-rpc-button').checked = !!s.discordRpcButton;
   $('discord-rpc-button').disabled = !$('discord-rpc').checked;
@@ -776,7 +796,6 @@ function collectSettings() {
     height: Number($('win-h').value),
     fullscreen: $('fullscreen').checked,
     afterLaunch: $('after-launch').value,
-    jvmArgs: $('jvm-args').value,
     uiScale: $('ui-scale').value === 'auto' ? 'auto' : Number($('ui-scale').value),
     discordRpc: $('discord-rpc').checked,
     discordRpcButton: $('discord-rpc-button').checked,
@@ -835,22 +854,35 @@ $('btn-repair').onclick = async () => {
   try { await L.repair(); } catch { /* błąd już w logu */ }
 };
 
-$('btn-settings-save').onclick = async () => {
+/** Ustawienia zapisują się same chwilę po każdej zmianie (bez przycisku „Zapisz”). Folder gry ma osobne „Zastosuj”. */
+let saveTimer = null;
+let savedTimer = null;
+async function autoSave() {
+  const c = collectSettings();
+  const snap = JSON.stringify(c);
+  if (snap === settingsSnapshot) return;
   $('settings-error').textContent = '';
   try {
-    const c = collectSettings();
     await L.saveSettings(c);
-    settingsSnapshot = JSON.stringify(c);
+    settingsSnapshot = snap;
     animOn = c.uiAnim !== false;
-    addLog('Zapisano ustawienia.');
     refreshRam();
-    const b = $('btn-settings-save');
-    b.textContent = '✔ Zapisano';
-    setTimeout(() => { b.textContent = 'Zapisz'; }, 1500);
+    const t = $('settings-saved');
+    t.classList.add('show');
+    clearTimeout(savedTimer);
+    savedTimer = setTimeout(() => t.classList.remove('show'), 1400);
   } catch (e) {
     $('settings-error').textContent = cleanErr(e);
   }
-};
+}
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(autoSave, 350); }
+for (const ev of ['input', 'change']) {
+  $('settings').addEventListener(ev, (e) => {
+    if (e.target.closest && e.target.closest('#dir-change, #game-dir')) return; // folder: tylko przyciskiem „Zastosuj”
+    scheduleSave();
+  });
+}
+$('display-mode').addEventListener('click', scheduleSave);
 
 // ---------- co nowego / lista zmian ----------
 function showChanges(title, entries) {
@@ -866,7 +898,6 @@ function showChanges(title, entries) {
   $('changes').classList.remove('hidden');
 }
 $('btn-changes-close').onclick = () => $('changes').classList.add('hidden');
-$('btn-changelog-full').onclick = (e) => { e.preventDefault(); clTab = 'launcher'; go('changelog'); };
 
 // ---------- start ----------
 async function init() {
@@ -929,7 +960,6 @@ async function refreshMyMods() {
   myMods = d.list;
   const on = myMods.filter((m) => m.enabled && !m.blocked).length;
   $('mymods-count').textContent = on ? String(on) : '';
-  renderHomeMods();
   const box = $('mymods-list');
   if (mm.kind === 'installed') return renderInstalled(box);
   const mine = myMods.filter((m) => (m.kind || 'mod') === mm.kind);
@@ -1227,6 +1257,7 @@ refreshMyMods().catch(() => {});
 const OVERLAY_CLOSE = {
   'add-account': () => { if (!$('add-account').classList.contains('required')) closeAddAccount(); },
   changes: () => $('btn-changes-close').click(),
+  'ev-modal': () => closeEvent(),
 };
 for (const [id, close] of Object.entries(OVERLAY_CLOSE)) {
   const ov = $(id);
@@ -1251,7 +1282,6 @@ document.addEventListener('keydown', (e) => {
 
 // ---------- nowy układ: pasek, widoki, menu ⋯, „Moje mody” na ekranie Start ----------
 
-let homeStyle = 'tiles';
 
 // ---------- strony (zamiast okien): pasek boczny przełącza zawartość obok ----------
 const PAGES = {
@@ -1307,7 +1337,6 @@ function go(p) {
 }
 for (const b of document.querySelectorAll('.rail [data-page]')) b.addEventListener('click', () => go(b.dataset.page));
 markRail();
-$('news-all').onclick = (e) => { e.preventDefault(); go('news'); };
 $('scene-news-all').onclick = (e) => { e.preventDefault(); go('news'); };
 
 // ---------- Changelog: Launcher / Server ----------
@@ -1333,22 +1362,6 @@ function renderChangelog() {
 }
 $('cl-launcher').onclick = () => { if (clTab !== 'launcher') { clTab = 'launcher'; renderChangelog(); } };
 $('cl-server').onclick = () => { if (clTab !== 'server') { clTab = 'server'; renderChangelog(); } };
-$('scene-prev').onclick = () => { const t = $('scene-news-track'); t.scrollBy({ left: -t.clientWidth * 0.8, behavior: 'smooth' }); };
-$('scene-next').onclick = () => { const t = $('scene-news-track'); t.scrollBy({ left: t.clientWidth * 0.8, behavior: 'smooth' }); };
-$('home-mods-open').onclick = (e) => { e.preventDefault(); go('mymods'); };
 
-function renderHomeMods() {
-  const box = $('home-mods');
-  const on = myMods.filter((m) => m.enabled && !m.blocked);
-  if (!on.length) {
-    box.replaceChildren(el('span', { className: 'home-empty', textContent: 'Nie masz jeszcze własnych modów – dodaj minimapę, zoom albo shadery.' }));
-    return;
-  }
-  const items = on.slice(0, 3).map((m) => el('div', { className: 'home-mod', title: m.name },
-    m.icon ? el('img', { src: m.icon, alt: '' }) : el('div', { className: 'noicon' }),
-    el('span', { textContent: m.name })));
-  box.replaceChildren(...items);
-  $('home-mods-open').textContent = on.length > 3 ? `Wszystkie (${on.length})` : 'Przeglądaj';
-}
 
 

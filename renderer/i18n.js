@@ -72,6 +72,18 @@
     'Wydajność': 'Performance', 'Przydatne': 'Utility', 'Dekoracje': 'Decoration', 'Wyposażenie': 'Equipment', 'Technologia': 'Technology',
     'Magia': 'Magic', 'Przygoda': 'Adventure', 'Świat': 'World', 'Moby': 'Mobs', 'Jedzenie': 'Food', 'Dźwięki': 'Sounds', 'Biblioteki': 'Libraries',
     'Kreskówkowe': 'Cartoon', 'Półrealistyczne': 'Semi-realistic', 'Realistyczne': 'Realistic', 'Bardzo słaby PC': 'Very weak PC', 'Słaby PC': 'Weak PC', 'Średni PC': 'Mid-range PC', 'Mocny PC': 'Powerful PC',
+    // uzupełnienia (Moje mody, wydarzenia, gracze, ustawienia)
+    'Sprawdzanie paczki...': 'Checking the pack...', 'Synchronizacja modów...': 'Syncing mods...', 'Pobieranie Javy': 'Downloading Java',
+    'Logowanie...': 'Logging in...', 'Uruchamianie gry...': 'Launching the game...', 'Anulowano': 'Cancelled', 'Naprawa zakończona': 'Repair finished',
+    'Przenoszenie plików gry...': 'Moving game files...', 'Anulowanie… (kończę bieżący krok)': 'Cancelling… (finishing the current step)',
+    'z paczki serwera': 'from the server pack', 'z dodatków': 'from add-ons', 'Przechowywanie': 'Storage', 'Przechowywane': 'Storage', 'Jak w grze': 'Vanilla-like', 'Proste': 'Simple', 'Tematyczne': 'Themed', 'Interfejs': 'Interface', 'Czcionki': 'Fonts',
+    'Interfejs i czcionki': 'Interface and fonts', 'Fantasy': 'Fantasy', 'Nie masz jeszcze paczek tekstur.': "You don't have any resource packs yet.", 'Twoje paczki tekstur': 'Your resource packs',
+    'Twoje shadery': 'Your shaders', 'Zainstalowane mody': 'Installed mods', 'Paczki zasobów': 'Resource packs',
+    'Ostatnie nowości': 'Latest news', 'Brak wydarzeń': 'No events', 'Zapisano': 'Saved',
+    'Napraw pliki gry': 'Repair game files', 'Pamięć dla gry': 'Memory for the game',
+    'Nikogo nie ma – bądź pierwszy!': 'Nobody is online – be the first!', 'Wymaga serwera': 'Requires server', 'wymaga serwera': 'requires server',
+    'Tylko klient': 'Client only', 'Aktualizacja': 'Update', 'Aktualne': 'Up to date', 'Sprawdzam…': 'Checking…', 'Szukam…': 'Searching…',
+    'Wczytywanie…': 'Loading…', 'Pobieranie…': 'Downloading…', 'Usuwanie…': 'Removing…', 'Gotowe': 'Done',
     // skin
     'Skin': 'Skin', 'Peleryna': 'Cape', 'Wybierz plik PNG…': 'Choose PNG file…', 'Klasyczny (Steve)': 'Classic (Steve)', 'Smukły (Alex)': 'Slim (Alex)',
     'Przywróć domyślnego skina': 'Restore default skin', 'Przywróć domyślnego skina (komenda)': 'Restore default skin (command)',
@@ -118,12 +130,18 @@
     [/^Twoje shadery \((\d+)\)$/, 'Your shaders ($1)'],
     [/^Twoje paczki tekstur \((\d+)\)$/, 'Your resource packs ($1)'],
     [/^Zainstalowane mody \((\d+)\)$/, 'Installed mods ($1)'],
+    [/^Z paczki serwera \((\d+)\)$/, 'From the server pack ($1)'],
+    [/^Z dodatków \((\d+)\)$/, 'From add-ons ($1)'],
     [/^Popularne (mody|shadery|paczki tekstur) w Modrinth(.*)$/, (m, w, rest) => `Popular ${{ mody: 'mods', shadery: 'shaders', 'paczki tekstur': 'resource packs' }[w]} on Modrinth${rest}`],
     [/^Ten serwer wymaga launchera (\S+) lub nowszego\. Zaktualizuj launcher, żeby zagrać\.$/, 'This server requires launcher $1 or newer. Update the launcher to play.'],
     [/^Serwer jest offline(.*)\.$/, 'The server is offline$1.'],
     [/^i (\d+) (inny|innych)$/, 'and $1 more'],
     [/^Co nowego w wersji (\S+)$/, "What's new in version $1"],
     [/^Lista zmian$/, 'Changelog'],
+    [/^Pobieranie:? (.+)$/, 'Downloading $1'],
+    [/^Przygotowanie: (.+)$/, 'Preparing: $1'],
+    [/^Błąd: (.+)$/, (m, e) => `Error: ${EN[e] || e}`],
+    [/^Launcher v(\S+) · (.+)$/, (m, v, rest) => `Launcher v${v} · ${EN[rest] || rest}`],
   ];
   const ATTRS = ['placeholder', 'title', 'aria-label', 'data-tip'];
   const SKIP = new Set(['SCRIPT', 'STYLE', 'PRE', 'CODE', 'TEXTAREA']);
